@@ -36,7 +36,7 @@ WaypointManager::WaypointManager(const std::vector<Vec3f>& path)
     if (path.size() > 1) {
         Vec3f initial_direction = (path.at(1) - path.at(0)).normalized();
         // You should define a constant for the desired Boid flight speed
-        const float DESIRED_FLIGHT_SPEED = 5.0f; 
+        const float DESIRED_FLIGHT_SPEED = 0.0f; 
         active_target_.set_speed(initial_direction * DESIRED_FLIGHT_SPEED);
     } else {
         // If only one waypoint, set speed to zero for an initial hover
@@ -212,24 +212,28 @@ void WaypointManager::update_path_progression(const Vec3f& swarm_center_position
         const Vec3f& current_waypoint_pos = waypoints_[active_waypoint_index_];
         float distance_to_waypoint = (swarm_center_position - current_waypoint_pos).norm();
 
-        if (distance_to_waypoint < WAYPOINT_THRESHOLD) {
+        if (distance_to_waypoint < WAYPOINT_THRESHOLD / 1.0) {
             // SWARM HAS CROSSED THE FINAL THRESHOLD: INITIATE FULL STOP
             
             // Set index to indicate path is complete (will trigger return on next frame)
             active_waypoint_index_++; 
             
             // Turn off all waypoint forces globally.
-            MovingObject::setWaypointAttractionWeight(0.0f); 
+            MovingObject::setWaypointAttractionWeight(10.0f); 
             MovingObject::setWaypointSpeedAlignmentWeight(0.0f);
-            active_target_.set_speed(Vec3f::Zero()); // Ensure the target itself is stopped
+            // active_target_.set_speed(Vec3f::Zero()); // TODO: check, but seems unused Ensure the target itself is stopped
 
-            // return; // Path finished.
         }
-        // swarm_has_stopped_ = true; // new, to stop the drones over the last WP
     }
     
     // Check 2: If the path is COMPLETE (index has been incremented past the end), stop all processing.
-    if (active_waypoint_index_ >= waypoints_.size()) {
+    if (active_waypoint_index_ >= waypoints_.size() ){ //&& !swarm_hover_) {
+    // if (active_waypoint_index_ >= waypoints_.size() && !swarm_hover_) {
+        swarm_has_stopped_ = true; // new, to stop the drones over the last WP
+        // if (!swarm_hover_){
+        // // swarm_hover_ = true; // new, to stop the drones over the last WP
+        // swarm_has_stopped_ = true; // new, to stop the drones over the last WP
+        // }
         return;
     }
 
@@ -268,7 +272,7 @@ void WaypointManager::update_path_progression(const Vec3f& swarm_center_position
 
         // Define the range over which the swarm will slow down (e.g., last 20 units)
         const float SLOWDOWN_DISTANCE = 100.0f; 
-        const float MAX_SPEED = 5.0f; 
+        const float MAX_SPEED = 5.1f; 
 
         // Calculate distance to the final waypoint
         const Vec3f& final_waypoint_pos = waypoints_[waypoints_.size() - 1];

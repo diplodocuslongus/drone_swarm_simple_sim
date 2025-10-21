@@ -27,12 +27,22 @@ public:
     void draw_path() const;
 
     std::vector<Vec3f> g_formation_offsets; // not needed if update in systemEvolution
+    // bool has_swarm_stopped() const { return swarm_stopped_; }
     bool has_swarm_stopped() const { return swarm_has_stopped_; }
+    void set_swarm_has_stopped() { 
+        swarm_has_stopped_ = true; 
+    }
+    void set_swarm_hover_flag() { 
+        swarm_hover_ = true; 
+    }
+    void reset_swarm_stopped_flag() { 
+        swarm_has_stopped_ = false; 
+    }
 private:
     std::vector<Vec3f> waypoints_; // full flight path
     int active_waypoint_index_;    // Current target index
 
-    // The ONE object boids will interact with, placed at waypoints_[active_waypoint_index_]
+    // The target which boids will interact with, placed at waypoints_[active_waypoint_index_]
     Target active_target_; 
     
     // threshold distance for switching to the next waypoint
@@ -40,6 +50,7 @@ private:
 
     // to check if last WP has been reached, if so, stop the drones
     bool swarm_has_stopped_ = false;
+    bool swarm_hover_= false;
 };
 
 #endif // WAYPOINT_MANAGER_H

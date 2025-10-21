@@ -7,12 +7,10 @@ Very much a WIP.
 
 This started as a fork of ThomasParistech's implementation of Craig Reynolds' boids, which simulates the flocking behaviour of birds, and evolved as a simulation framework to study / understand drone swarms.
  
-
 *The basic flocking model consists of three simple steering behaviors which describe how an individual boid maneuvers based on the positions and velocities its nearby flockmates:*
 - *Separation: steer to avoid crowding local flockmates*
 - *Alignment: steer towards the average heading of local flockmates*
 - *Cohesion: steer to move toward the average position of local flockmates*
-
 
 Features added:
 
@@ -23,7 +21,9 @@ Features added:
 - waypoint navigation
 - ground plane, axis of coordinate system, ... 
 - some utilities (capture screenshot, run the simulation for a fixed duration, ...)
+- trajectory visualization
 - python scripts to analyze cohesion metric, etc...
+
 
 ## Installation
 
@@ -53,8 +53,11 @@ The executable is generated in the "bin" directory.
 
 Go to the build directory and run the app
 ```
-bin/main
+bin/./main
 ```
+
+## Usage
+
 Get some help
 
     ./bin/./main -h
@@ -69,7 +72,21 @@ Examples of commands to run:
 
     ./bin/./main --nb_boids 49 --separation 0.1 --cohesion 1 --alignment 10.3 --maxdist 1.5 --mindist 1.0 --fov 90 --maxspeed 7 --fencesz 50 --targetattract 0.01 --fencerepel 5 --simt 6 --msglat .01 --randf 0.1
 
+
+Keyboard inputs.
+
+- save screenshot
+- add target
+- ESC end the simulation
+- ...
+
+## Python scripts
+
+They are mainly used to develop specific aspect of the swarm, such as cohesion metric.
+Example of collision penalty strategy:
+
 ![](./images/collision_penalty.png) 
+
 
 
 ## considerations for messaging

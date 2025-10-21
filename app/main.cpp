@@ -9,7 +9,7 @@
 #define USE_WAYPOINT // define and use waypoints for navigation
 #define WP_NAV_PRESERVE_FORMATION // preserve swarm formation when navigating with waypoints
 #define SHOW_PATH    // show swarm COG sliding window and whole trajectory
-// #define SHOW_SLIDE_WIN_PATH    // show swarm COG sliding window trajectory
+// #define SHOW_SLIDE_WIN_PATH    // show swarm COG sliding window trajectory ( comet like trail)
 #include <vector>
 #define FREEGLUT_EXT
 #define ENABLE_GUI
@@ -108,8 +108,20 @@ bool g_show_full_path = false; // show full swarm COG path
 bool g_show_log_metric_header = false; // mainly to debug the cohesion metric and log its details
 float g_ogl_zoom_lvl = 70.0f; // large: far, small value: near (zoommed in)
 float g_ogl_trans_x = 30.0f; // opengl camera view translate coord system along x axis
+bool g_stop_simulation = false;
 std::string metricfilename;
 
+// save weight as a way to stop the swarm (make it hover) 
+// and at the same time preserving the cohesion
+struct SavedWeights {
+    float cohesion = 0.0f;
+    float separation = 0.0f;
+    float alignment = 0.0f;
+    float waypoint_attraction = 0.0f;
+    float waypoint_alignment = 0.0f;
+};
+// extern SavedWeights g_original_weights;
+SavedWeights g_original_weights;
 // generate filename for coehsion metric logging
 // takes relevant simulation parameters
 std::string genCohesionMetricFilename(float randforce, float dronedist) {
@@ -750,6 +762,10 @@ void processKeys(unsigned char key, int x, int y)
         // add_boid(-1);
         // add_boid(0,boids_number);
     }
+    else if (key == 'h') // make the drone swarm to hover at its location
+    {
+        g_stop_simulation = !g_stop_simulation;
+    }
     else if (key == 's')
     {
         captureScreenshot();
@@ -790,13 +806,90 @@ void systemEvolution()
                 // add_boid(i);
         }
     }
+    // const float global_time = (float)glutGet(GLUT_ELAPSED_TIME) * 0.001;
     const float nowtime = (float)glutGet(GLUT_ELAPSED_TIME) * 0.001;
+    static float  frozen_sim_time = 0.0f; //nowtime;
+    static float delta_time_since_frozen = 0.0f;
+    static bool is_frozen = false;
+    if (g_stop_simulation && !is_frozen) {
+    // --- FREEZE SEQUENCE (Execute ONCE upon stop) ---
+    is_frozen = true;
+    frozen_sim_time = nowtime;
+    std::cout << "is frozen ="<<is_frozen << std::endl;
+    
+    // 1. Save Original Weights
+    g_original_weights.cohesion = MovingObject::getCohesionWeight();
+    g_original_weights.separation = MovingObject::getSeparationWeight();
+    g_original_weights.alignment = MovingObject::getAlignmentWeight();
+    // ... (TODO later Save waypoint weights ) ...
+
+    // 2. Kill All Force Weights (Prevents collapse)
+    // MovingObject::setCohesionWeight(0.0f);
+    // MovingObject::setSeparationWeight(0.0f);
+    MovingObject::setAlignmentWeight(0.0f);
+    // ... (Set all other active weights to 0.0f) ...
+
+    // 3. Kill Momentum
+    for (auto &boid : boids_) {
+        boid.set_speed(Vec3f::Zero()); 
+    }
+    std::cout << "all boid speed to zero =" << std::endl;
+} 
+else if (!g_stop_simulation && is_frozen) { // to move again
+    // --- UNFREEZE SEQUENCE (Execute ONCE upon resume) ---
+    // TODO: need to reset the force and all to a move forward direction, see the if(is_frozen) section
+    is_frozen = false;
+    std::cout << "is frozen 2 ="<<is_frozen << std::endl;
+    
+    // Restore Original Weights
+    MovingObject::setCohesionWeight(g_original_weights.cohesion);
+    MovingObject::setSeparationWeight(g_original_weights.separation);
+    MovingObject::setAlignmentWeight(g_original_weights.alignment);
+        for (auto &boid : boids_) {
+            float u,v,w;
+        u = static_cast<float>(0.1+rand()) / static_cast<float>(RAND_MAX);
+        v = static_cast<float>(0.01);
+        w = static_cast<float>(0.0);
+            
+            Vec3f restart_velocity(u,v,w);
+            boid.set_speed(restart_velocity); 
+        }
+    // frozen_sim_time 
+    // ... (Restore all other active weights) ...
+}
+//  if (g_stop_simulation && is_frozen) {
+ if (g_stop_simulation) {
+    // std::cout << "is frozen 3 ="<<is_frozen << std::endl;
+// if (0){ // g_stop_simulation) {
+// else  if (g_stop_simulation) {
+    // MovingObject::setAlignmentWeight(0.0f);
+    // MovingObject::setAlignmentWeight(0.0f);
+    // MovingObject::setAlignmentWeight(g_original_weights.alignment);
+    // MovingObject::setCohesionWeight(g_original_weights.cohesion);
+    // MovingObject::setSeparationWeight(g_original_weights.separation);
+}
+    if (is_frozen){
+        // MovingObject::setCohesionWeight(g_original_weights.cohesion / 10);
+        // MovingObject::setSeparationWeight(g_original_weights.separation / 1);
+        // MovingObject::setAlignmentWeight(g_original_weights.alignment / 10);
+        delta_time_since_frozen = nowtime - frozen_sim_time;
+        for (auto &boid : boids_) {
+            float r1 = ((float)rand() / RAND_MAX - 0.5f) * 0.0000f; 
+            float r2 = ((float)rand() / RAND_MAX - 0.5f) * 0.0000f;
+            float r3 = ((float)rand() / RAND_MAX - 0.5f) * 0.0000f;
+            
+            Vec3f random_nudge(r1, r2, r3);
+            boid.set_speed(random_nudge); 
+        }
+        // return;
+    }
     // For each boid: reset, accumulate (messages OR direct neighbors), add static objects, then update
     for (auto &boid : boids_) {
         boid.resetAccumulators();
 
 #ifdef USE_MESSAGES
-        boid.processMessagesAndInterpolate(nowtime); // populates avg_position_, avg_speed_, proximity_force_, n_neighbors_
+        boid.processMessagesAndInterpolate(nowtime - delta_time_since_frozen); // populates avg_position_, avg_speed_, proximity_force_, n_neighbors_
+        // boid.processMessagesAndInterpolate(nowtime); // populates avg_position_, avg_speed_, proximity_force_, n_neighbors_
         // if (boid.get_id() == 1) {
         // std::cout << "\n\n\nafter messages: nb neighb=" << boid.get_n_neighbors()
     //               << " prox frce=" << boid.get_proximity_force().norm() << std::endl;
@@ -849,11 +942,17 @@ void systemEvolution()
         // waypoints will act like targets and break the formation
         boid.add_neighbor(active_target);
 #endif
+        // if (crt_waypoint_->has_swarm_stopped()) {
         if (crt_waypoint_->has_swarm_stopped()) {
-            // stop every boid immediately
+            // stop every boid immediately only once
+            // std::cout << "last WP, set speed to zero\n";
             for (auto &boid : boids_) {
-                boid.set_speed(Vec3f::Zero()); 
+                if (boid.get_speed().norm() > 0.01f) {
+                // boid.set_speed(Vec3f::Zero()); 
+                }
             }
+            // crt_waypoint_ -> reset_swarm_stopped_flag(); // set has stopped flag, will not change the speed again here
+            // crt_waypoint_ -> set_swarm_hover_flag(); // hover flag, used in waypoint manager
         }
     }
 #else
@@ -876,13 +975,15 @@ void systemEvolution()
         // std::cout << "Boid " << boid.get_id() << " before update: n=" << boid.get_n_neighbors()
         //           << " prox=" << boid.get_proximity_force().norm()
         //           << " avgpos=" << boid.get_avg_position() << std::endl;
-        boid.update(nowtime);
+        boid.update(nowtime - delta_time_since_frozen);
+        // boid.update(nowtime);
     }
     
 #ifdef USE_MESSAGES
     // fill in each individual boid messages (its position, speed and corresponding time)
     for (int i = 0; i < boids_.size(); i++) {
-        BoidMessage msg{ i, boids_[i].get_position(), boids_[i].get_speed(), nowtime };
+        BoidMessage msg{ i, boids_[i].get_position(), boids_[i].get_speed(), nowtime - delta_time_since_frozen};
+        // BoidMessage msg{ i, boids_[i].get_position(), boids_[i].get_speed(), nowtime };
         for (int j = 0; j < boids_.size(); j++) {
             if (i != j) {
                 boids_[j].receiveMessage(msg);
@@ -908,6 +1009,7 @@ void systemEvolution()
         Vec3f swarm_cog = g_metrics.swarm_center_of_gravity(boids_);
         float swarm_travel_dist = swarm_cog.norm();
         double confweighsum = g_metrics.average_confidence_weight(boids_);
+        // std::cout << nowtime << "\t"  << frozen_sim_time << "\t" << delta_time_since_frozen <<  std::endl;
 
     // if (crt_target_)
     //     std::cout << crt_target_->get_exerted_proximity_force(*this);
@@ -922,6 +1024,7 @@ void systemEvolution()
         // Update the last metric time to the current time
         last_metric_time = current_time;
     }
+
 }
 
 
@@ -1005,7 +1108,6 @@ int main(int argc, char **argv)
     plog::init(plog::info, &consoleAppender); // set severity: verbose, debug, info, ...
 
     PLOG_INFO << "First log, using message";
-    const float starttime = (float)glutGet(GLUT_ELAPSED_TIME) * 0.001;
     // starting message
 #ifdef USE_MESSAGES
     std::cout << "Using MESSAGES!." << std::endl;
