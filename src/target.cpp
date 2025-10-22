@@ -55,7 +55,7 @@ Vec3f Target::get_exerted_proximity_force(const MovingObject &object) const
 
     // Weights and Force Logic based on Target Mode
     if (mode_ == ATTRACT_AND_FLY_OVER) {
-        // for waypoints
+        // mainly for waypoints (could be used for regular target too, depending on intended behavior)
         
         // Waypoint-specific weights
         attract_weight     = MovingObject::getWaypointAttractionWeight();

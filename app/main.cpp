@@ -574,14 +574,20 @@ void init(void)
     // define waypoints locations
     // define the whole path as a vector 
     std::vector<Vec3f> triangle_path = {
-    Vec3f(10, 0, 0),      // Waypoint 1
-    Vec3f(10, 10, 0),      // Waypoint 2
-    Vec3f(20, 0, 0),      // Waypoint 3 
-    Vec3f(30, 10, 0)      // Waypoint 4 (The final hover point)
-};
+        Vec3f(20, 0, 0),      // Waypoint 1
+        Vec3f(30, 10, 0),      // Waypoint 2
+        Vec3f(40, 20, 0),      // Waypoint 3 
+    };
+    std::vector<Vec3f> four_point_path = {
+        Vec3f(10, 0, 0),      // Waypoint 1
+        Vec3f(10, 10, 0),      // Waypoint 2
+        Vec3f(20, 0, 0),      // Waypoint 3 
+        Vec3f(30, 10, 0)      // Waypoint 4 (The final hover point)
+    };
 
     // WaypointManager
-    waypoints_.emplace_back(triangle_path);
+    waypoints_.emplace_back(four_point_path);
+    // waypoints_.emplace_back(triangle_path);
     // waypoints_.emplace_back( Vec3f(10, 0, 0));
     // comment if want enable waypoint from keyboard
     crt_waypoint_ = &waypoints_.back();
