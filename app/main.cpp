@@ -6,7 +6,7 @@
  *********************************************************************************************************************/
 
 #define USE_MESSAGES // boids get each others' position from messages
-// #define USE_WAYPOINT // define and use waypoints for navigation
+#define USE_WAYPOINT // define and use waypoints for navigation
 #define WP_NAV_PRESERVE_FORMATION // preserve swarm formation when navigating with waypoints
 #define WP_BACK_HOME // waypoint behavior: back to first waypoint after last (loop)
 
@@ -102,7 +102,7 @@ float vision_FOV = 90.0f; // TODO
 float min_cos_FOV = 0.5f; // 0.5 -> +/- 45° FOV
 float max_speed = 5.0f;
 float target_attraction_weight = 0.02f;
-float target_speed_alignment_weight = 0.03f;
+float target_velocity_alignment_weight = 0.03f;
 float fence_repel_weight = 50.0f;
 float fence_size = 15.0f;
 float force_randomness = 0.01f;// randomness to add to forces (can simulate wind)
@@ -222,14 +222,14 @@ void printHelp() {
 }
 // --- SET THE WEIGHTS AND PARAMETERS ---
 void set_boid_params(int nbboids,float maxdist,float mindist,
-        float maxspeed,float targetattract, float targetspeedalign,
+        float maxspeed,float targetattract, float targetvelocityalign,
         float mincosFOV, float fencesize,float fencerepel, float msglatency, float forcerandomness) {
     MovingObject::setBoidNumber(nbboids);
     MovingObject::setNeighborMaxDist(maxdist);
     MovingObject::setSeparationMinDist(mindist);
     MovingObject::setMaxSpeed(maxspeed);
     MovingObject::setTargetAttractionWeight(targetattract);
-    MovingObject::setTargetSpeedAlignmentWeight(targetspeedalign);
+    MovingObject::setTargetSpeedAlignmentWeight(targetvelocityalign);
     MovingObject::setMinCosAngle(mincosFOV);
     MovingObject::setFenceSize(fencesize);
     MovingObject::setFenceRepelWeight(fencerepel);
@@ -354,9 +354,9 @@ int parse_command_line_args(int argc, char** argv) {
         else if (arg == "--targetalign") {
             if (i + 1 < argc) {
                 try {
-                    target_speed_alignment_weight = std::stof(argv[++i]);
+                    target_velocity_alignment_weight = std::stof(argv[++i]);
                 } catch (const std::exception& e) {
-                    std::cerr << "Error: --targetspeedalign requires a float argument. Using default." << std::endl;
+                    std::cerr << "Error: --targetvelocityalign requires a float argument. Using default." << std::endl;
                 }
             }
         }
@@ -560,7 +560,7 @@ void init(void)
     // initialization of boid messaging
     const float nowtime = (float)glutGet(GLUT_ELAPSED_TIME) * 0.001;
     for (int i = 0; i < boids_.size(); i++) {
-        BoidMessage msg{ i, boids_[i].get_position(), boids_[i].get_speed(), nowtime };
+        BoidMessage msg{ i, boids_[i].get_position(), boids_[i].get_velocity(), nowtime };
         for (int j = 0; j < boids_.size(); j++) {
             if (i != j) {
                 boids_[j].receiveMessage(msg);
@@ -595,7 +595,21 @@ void init(void)
     //     targets_.emplace_back(scale * Vec3f(0, 0, k));
      
     // TODO (maybe): pass target locations from the command line
-    targets_.emplace_back( Vec3f(20, 0, 2));
+    // 1. Define the accelerating function (the movement strategy)
+    //    dt is delta time, vel is the current velocity vector.
+    auto gravity_velocity_update = [](float dt, Vec3f &vel) {
+        // Gravitational acceleration (e.g., 9.8 m/s^2) applied over delta time.
+        // Assuming Vec3f members are x, y, z.
+        vel.y() -= 9.8f * dt;
+    };
+
+    // 2. Construct the Target by passing the function as the second argument.
+    //    (Initial position: 20, 0, 2)
+    targets_.emplace_back(
+        Vec3f(20, 0, 2),        // The 'position' argument (first parameter)
+        gravity_velocity_update    // The 'update_velocity_func' argument (second parameter)
+    );
+    // targets_.emplace_back( Vec3f(20, 0, 2));
 
     // define obstacle
     // for (double j : {-7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7})
@@ -653,9 +667,9 @@ void display()
     float temp_targt_attraction_weight = MovingObject::getTargetAttractionWeight();
     ImGui::SliderFloat("Target attraction", &temp_targt_attraction_weight, 0.0f, 1.f);
     MovingObject::setTargetAttractionWeight(temp_targt_attraction_weight);
-    float temp_targt_speed_align_weight = MovingObject::getTargetSpeedAlignmentWeight();
-    ImGui::SliderFloat("Target speed attraction", &temp_targt_speed_align_weight, 0.0f, 0.05f);
-    MovingObject::setTargetSpeedAlignmentWeight(temp_targt_speed_align_weight);
+    float temp_targt_velocity_align_weight = MovingObject::getTargetSpeedAlignmentWeight();
+    ImGui::SliderFloat("Target speed attraction", &temp_targt_velocity_align_weight, 0.0f, 0.05f);
+    MovingObject::setTargetSpeedAlignmentWeight(temp_targt_velocity_align_weight);
     ImGui::SliderFloat("Obstacle", &Obstacle::obstacle_factor_, 0.f, 200.f);
     float temp_force_randomness = MovingObject::getForceRandomness();
     ImGui::SliderFloat("Randomness", &temp_force_randomness, 0.0f, 2.f);
@@ -840,7 +854,7 @@ void systemEvolution()
 
         // kill momentum or ... decelerate
         for (auto &boid : boids_) {
-            boid.set_speed(Vec3f::Zero()); 
+            boid.set_velocity(Vec3f::Zero()); 
         }
         // std::cout << "all boid speed to zero =" << std::endl;
     } 
@@ -862,7 +876,7 @@ void systemEvolution()
             w = static_cast<float>(0.0);
                 
             Vec3f restart_velocity(u,v,w);
-            boid.set_speed(restart_velocity); 
+            boid.set_velocity(restart_velocity); 
             }
         // frozen_sim_time 
         // ... (Restore all other active weights) ...
@@ -889,7 +903,7 @@ void systemEvolution()
             float r3 = ((float)rand() / RAND_MAX - 0.5f) * 0.0000f;
             
             Vec3f random_nudge(r1, r2, r3);
-            boid.set_speed(random_nudge); 
+            boid.set_velocity(random_nudge); 
         }
         // return;
     }
@@ -899,8 +913,8 @@ void systemEvolution()
 
 #ifdef USE_MESSAGES
         // note: now use a delta time to account for when the swarm hovers (otherway: use another global sim time)
-        boid.processMessagesAndInterpolate(nowtime - delta_time_since_frozen); // populates avg_position_, avg_speed_, proximity_force_, n_neighbors_
-        // boid.processMessagesAndInterpolate(nowtime); // populates avg_position_, avg_speed_, proximity_force_, n_neighbors_
+        boid.processMessagesAndInterpolate(nowtime - delta_time_since_frozen); // populates avg_position_, avg_velocity_, proximity_force_, n_neighbors_
+        // boid.processMessagesAndInterpolate(nowtime); // populates avg_position_, avg_velocity_, proximity_force_, n_neighbors_
         if (crt_target_) {
             boid.add_neighbor(*crt_target_);
             // if (boid.get_id() == 0)
@@ -952,8 +966,8 @@ void systemEvolution()
                 // stop every boid immediately only once
                 // std::cout << "last WP, set speed to zero\n";
                 for (auto &boid : boids_) {
-                    if (boid.get_speed().norm() > 0.01f) {
-                    // boid.set_speed(Vec3f::Zero()); 
+                    if (boid.get_velocity().norm() > 0.01f) {
+                    // boid.set_velocity(Vec3f::Zero()); 
                     }
                 }
                 // crt_waypoint_ -> reset_swarm_stopped_flag(); // set has stopped flag, will not change the speed again here
@@ -987,8 +1001,8 @@ void systemEvolution()
 #ifdef USE_MESSAGES
     // fill in each individual boid messages (its position, speed and corresponding time)
     for (int i = 0; i < boids_.size(); i++) {
-        BoidMessage msg{ i, boids_[i].get_position(), boids_[i].get_speed(), nowtime - delta_time_since_frozen};
-        // BoidMessage msg{ i, boids_[i].get_position(), boids_[i].get_speed(), nowtime };
+        BoidMessage msg{ i, boids_[i].get_position(), boids_[i].get_velocity(), nowtime - delta_time_since_frozen};
+        // BoidMessage msg{ i, boids_[i].get_position(), boids_[i].get_velocity(), nowtime };
         for (int j = 0; j < boids_.size(); j++) {
             if (i != j) {
                 boids_[j].receiveMessage(msg);
@@ -1129,7 +1143,7 @@ int main(int argc, char **argv)
     if (parse_command_line_args(argc, argv) == 1) return 0;
     set_boid_params(boids_number,neighborhood_max_dist,
             boid_to_boid_min_dist,max_speed,target_attraction_weight ,
-            target_speed_alignment_weight,min_cos_FOV,fence_size,
+            target_velocity_alignment_weight,min_cos_FOV,fence_size,
             fence_repel_weight,
             msg_latency,force_randomness);
     set_boid_weights( separation_weight, alignment_weight, cohesion_weight);

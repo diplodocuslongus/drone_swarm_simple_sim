@@ -35,10 +35,10 @@ WaypointManager::WaypointManager(const std::vector<Vec3f>& path)
         Vec3f initial_direction = (path.at(1) - path.at(0)).normalized();
         // TODO: define a constant for the desired Boid flight speed
         const float DESIRED_FLIGHT_SPEED = 0.0f; 
-        active_target_.set_speed(initial_direction * DESIRED_FLIGHT_SPEED);
+        active_target_.set_velocity(initial_direction * DESIRED_FLIGHT_SPEED);
     } else {
         // If only one waypoint, set speed to zero for an initial hover
-        active_target_.set_speed(Vec3f::Zero()); 
+        active_target_.set_velocity(Vec3f::Zero()); 
     }
 
     // case where one wants to maintain formation shape
@@ -60,7 +60,7 @@ void WaypointManager::update_path_progression_per_boid(const Vec3f& swarm_center
     if (active_waypoint_index_ >= waypoints_.size() - 1) {
         // We are at the final waypoint. No progression needed.
         // TODO (?) set the active_target_ speed to zero here for a final hover effect.
-         active_target_.set_speed(Vec3f::Zero()); 
+         active_target_.set_velocity(Vec3f::Zero()); 
         return;
     }
 
@@ -84,10 +84,10 @@ void WaypointManager::update_path_progression_per_boid(const Vec3f& swarm_center
         if (active_waypoint_index_ < waypoints_.size() - 1) {
              Vec3f direction = (waypoints_[active_waypoint_index_ + 1] - next_waypoint_pos).normalized();
              // Set the target's speed to influence boid alignment
-             active_target_.set_speed(direction * 5.0f); 
+             active_target_.set_velocity(direction * 5.0f); 
         } else {
              // Final waypoint, set speed to zero (for a hovering/clustering effect)
-             active_target_.set_speed(Vec3f::Zero()); 
+             active_target_.set_velocity(Vec3f::Zero()); 
              // MovingObject::setWaypointAttractionWeight(0.0); 
              // MovingObject::setWaypointSpeedAlignmentWeight(0.0);
         }
@@ -120,7 +120,7 @@ void WaypointManager::update_path_progression(const Vec3f& swarm_center_position
             // We just finished the final waypoint. Set final stop state.
             
             // Set the target's speed to zero (if it wasn't already).
-            active_target_.set_speed(Vec3f::Zero()); 
+            active_target_.set_velocity(Vec3f::Zero()); 
 
             // Turn off attraction and alignment forces.
             MovingObject::setWaypointAttractionWeight(0.0f); 
@@ -138,7 +138,7 @@ void WaypointManager::update_path_progression(const Vec3f& swarm_center_position
             
             // FINAL WP: Set speed to zero now, but KEEP the attraction/alignment 
             // active to maintain formation until the swarm reaches the final threshold.
-            active_target_.set_speed(Vec3f::Zero()); 
+            active_target_.set_velocity(Vec3f::Zero()); 
             
             // NOTE: DO NOT set weights to zero here yet. Keep them active so 
             // the virtual targets hold the formation in place as they slow down.
@@ -148,7 +148,7 @@ void WaypointManager::update_path_progression(const Vec3f& swarm_center_position
             
             const Vec3f& subsequent_waypoint_pos = waypoints_[active_waypoint_index_ + 1];
             Vec3f direction = (subsequent_waypoint_pos - next_waypoint_pos).normalized();
-            active_target_.set_speed(direction * 5.0f); 
+            active_target_.set_velocity(direction * 5.0f); 
             
             // we assume the default static values are correct and only need 
             // to be reset if they were previously set to 0.0f.
@@ -188,12 +188,12 @@ void WaypointManager::update_path_progression(const Vec3f& swarm_center_position
         if (active_waypoint_index_ <= waypoints_.size() - 1) {
              Vec3f direction = (waypoints_[active_waypoint_index_ + 1] - next_waypoint_pos).normalized();
              // Set the target's speed to influence boid alignment
-             active_target_.set_speed(direction * 5.0f); 
+             active_target_.set_velocity(direction * 5.0f); 
              // MovingObject::setWaypointAttractionWeight(0.02f); 
              // MovingObject::setWaypointSpeedAlignmentWeight(0.03f);
         } else {
              // Final waypoint, set speed to zero (for a hovering/clustering effect)
-             active_target_.set_speed(Vec3f::Zero()); 
+             active_target_.set_velocity(Vec3f::Zero()); 
              // new: set the relevant attraction weights to zero, for all boids
              MovingObject::setWaypointAttractionWeight(0.0); 
              MovingObject::setWaypointSpeedAlignmentWeight(0.0);
@@ -219,7 +219,7 @@ void WaypointManager::update_path_progression(const Vec3f& swarm_center_position
             // Turn off all waypoint forces globally.
             MovingObject::setWaypointAttractionWeight(10.0f); 
             MovingObject::setWaypointSpeedAlignmentWeight(0.0f);
-            // active_target_.set_speed(Vec3f::Zero()); // TODO: check, but seems unused Ensure the target itself is stopped
+            // active_target_.set_velocity(Vec3f::Zero()); // TODO: check, but seems unused Ensure the target itself is stopped
 
         }
     }
@@ -255,11 +255,11 @@ void WaypointManager::update_path_progression(const Vec3f& swarm_center_position
         // Only look ahead if there's a subsequent waypoint for smooth alignment.
         if (active_waypoint_index_ < waypoints_.size() - 1) {
              Vec3f direction = (waypoints_[active_waypoint_index_ + 1] - next_waypoint_pos).normalized();
-             active_target_.set_speed(direction * 5.0f); 
+             active_target_.set_velocity(direction * 5.0f); 
         } 
         // else {
         //      // We are now pointing at the final waypoint index (just set the position, speed will be handled by deceleration)
-        //      active_target_.set_speed(Vec3f::Zero()); // Set speed to zero NOW to start general slowdown
+        //      active_target_.set_velocity(Vec3f::Zero()); // Set speed to zero NOW to start general slowdown
         // }
     }
     
@@ -283,12 +283,12 @@ void WaypointManager::update_path_progression(const Vec3f& swarm_center_position
         // Note: We use the existing alignment direction
 
         // Find the direction (if it's not already set in the active_target_)
-        Vec3f target_vel = active_target_.get_speed().normalized();
+        Vec3f target_vel = active_target_.get_velocity().normalized();
 
         // Only apply if the current speed is non-zero (i.e., if the target is still moving)
-            // std::cout << "lastWP: "<<  active_target_.get_speed().norm() << " "; 
-        if (active_target_.get_speed().norm() > 0.1f) {
-            active_target_.set_speed(target_vel * MAX_SPEED * speed_scale);
+            // std::cout << "lastWP: "<<  active_target_.get_velocity().norm() << " "; 
+        if (active_target_.get_velocity().norm() > 0.1f) {
+            active_target_.set_velocity(target_vel * MAX_SPEED * speed_scale);
             // std::cout << target_vel.norm() * MAX_SPEED * speed_scale << " "; 
         }
     }

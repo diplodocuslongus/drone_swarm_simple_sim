@@ -26,7 +26,7 @@ float Boid::getMessageLatency() {
     return s_message_latency;
 }
 
-Boid::Boid(const Vec3f &position, const Vec3f &speed) : MovingObject(position, speed)
+Boid::Boid(const Vec3f &position, const Vec3f &velocity) : MovingObject(position, velocity)
 {
     boid_type_ = 1;
 
@@ -34,7 +34,7 @@ Boid::Boid(const Vec3f &position, const Vec3f &speed) : MovingObject(position, s
 
     n_neighbors_ = 0;
     avg_position_ = Vec3f(0, 0, 0);
-    avg_speed_ = Vec3f(0, 0, 0);
+    avg_velocity_ = Vec3f(0, 0, 0);
     proximity_force_ = Vec3f(0, 0, 0);
 
     float r = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
@@ -52,14 +52,14 @@ Boid::Boid(const Vec3f &position, const Vec3f &speed) : MovingObject(position, s
 //         // Vision angle
 //         const Vec3f diff = object.get_position() - position_;
 //         float temp_min_cos_ang= MovingObject::getMinCosAngle();
-//         if (diff.dot(speed_) >= temp_min_cos_ang * speed_.norm() * diff.norm())
-//         // if (diff.dot(speed_) >= min_cos_angle_ * speed_.norm() * diff.norm())
+//         if (diff.dot(velocity_) >= temp_min_cos_ang * velocity_.norm() * diff.norm())
+//         // if (diff.dot(velocity_) >= min_cos_angle_ * velocity_.norm() * diff.norm())
 //         {
 //             n_neighbors_++;
 //             // Cohesion
 //             avg_position_ += object.get_position();
 //             // Alignment
-//             avg_speed_ += object.get_speed();
+//             avg_velocity_ += object.get_velocity();
 //         }
 //     }
 //
@@ -79,13 +79,13 @@ void Boid::add_neighbor(const MovingObject &object)
         // Vision angle
         const Vec3f diff = object.get_position() - position_;
         float temp_min_cos_ang= MovingObject::getMinCosAngle();
-        if (diff.dot(speed_) >= temp_min_cos_ang * speed_.norm() * diff.norm())
+        if (diff.dot(velocity_) >= temp_min_cos_ang * velocity_.norm() * diff.norm())
         {
             n_neighbors_++;
             // Cohesion
             avg_position_ += object.get_position();
             // Alignment
-            avg_speed_ += object.get_speed();
+            avg_velocity_ += object.get_velocity();
         }
         // Separation 
         proximity_force_ += object.get_exerted_proximity_force(*this);
@@ -125,7 +125,7 @@ void Boid::processMessagesAndInterpolate(double t) {
     // Reset accumulators
     // n_neighbors_ = 0;
     // avg_position_ = Vec3f(0, 0, 0);
-    // avg_speed_ = Vec3f(0, 0, 0);
+    // avg_velocity_ = Vec3f(0, 0, 0);
     // proximity_force_ = Vec3f(0, 0, 0);
 
     // move released messages into neighbor_history_ (this is done by getVisibleMessages)
@@ -141,7 +141,7 @@ void Boid::processMessagesAndInterpolate(double t) {
         if (!getInterpolatedNeighborState(neighbor_id, t, interp)) continue;
 
         const Vec3f neighbor_pos = interp.position;
-        const Vec3f neighbor_speed = interp.velocity;
+        const Vec3f neighbor_velocity = interp.velocity;
 
         const Vec3f pos_diff = neighbor_pos - position_;
         const float pos_diff_norm = pos_diff.norm();
@@ -149,14 +149,14 @@ void Boid::processMessagesAndInterpolate(double t) {
         // vision cone check (handle near-zero speed)
         float temp_min_cos_ang = MovingObject::getMinCosAngle();
         bool in_vision = true;
-        if (speed_.norm() > 1e-6f)
-            in_vision = (pos_diff.dot(speed_) >= temp_min_cos_ang * speed_.norm() * pos_diff_norm);
+        if (velocity_.norm() > 1e-6f)
+            in_vision = (pos_diff.dot(velocity_) >= temp_min_cos_ang * velocity_.norm() * pos_diff_norm);
 
         if (in_vision) {
             n_neighbors_++;
             neighbor_confidence_weight_sum_ +=  interp.state_confidence;
             avg_position_ += interp.state_confidence* neighbor_pos; // degrade position info based on the boid state confidence
-            avg_speed_ += interp.state_confidence* neighbor_speed; // degrade speed info based on the boid state confidence
+            avg_velocity_ += interp.state_confidence* neighbor_velocity; // degrade speed info based on the boid state confidence
         }
 
         // separation: point away from neighbor -> negative pos_diff
@@ -176,7 +176,7 @@ void Boid::processMessages(double t) {
     // Clear
     n_neighbors_ = 0;
     avg_position_ = Vec3f(0, 0, 0);
-    avg_speed_ = Vec3f(0, 0, 0);
+    avg_velocity_ = Vec3f(0, 0, 0);
     proximity_force_ = Vec3f(0, 0, 0);
     auto msgs = getVisibleMessages(t);
 
@@ -184,16 +184,16 @@ void Boid::processMessages(double t) {
         // Look up neighbor’s *perceived* position
         // this part is from add_neighbor
         Vec3f neighbor_pos = msg.position;
-        Vec3f neighbor_speed = msg.velocity;
+        Vec3f neighbor_velocity = msg.velocity;
 
         const Vec3f pos_diff = neighbor_pos - position_;
         float pos_diff_norm = pos_diff.norm();
         float temp_min_cos_ang = MovingObject::getMinCosAngle();
-        if (pos_diff.dot(speed_) >= temp_min_cos_ang * speed_.norm() * pos_diff_norm) {
+        if (pos_diff.dot(velocity_) >= temp_min_cos_ang * velocity_.norm() * pos_diff_norm) {
             n_neighbors_++;
             // Cohesion
             avg_position_ += neighbor_pos;
-            avg_speed_ += neighbor_speed;  
+            avg_velocity_ += neighbor_velocity;  
         }
         // Separation + target attraction
         // separation force must also use neighbor_pos
@@ -209,19 +209,19 @@ void Boid::processMessages(double t) {
     }
 }
 
-void Boid::update_no_ang_speed_clamp(float t)
+void Boid::update_no_ang_velocity_clamp(float t)
 {
-    Vec3f speed_incr(0, 0, 0);
+    Vec3f velocity_incr(0, 0, 0);
     float cohesion_weight = MovingObject::getCohesionWeight();
     float align_weight = MovingObject::getAlignmentWeight();
     // Update speed
     if (n_neighbors_ != 0)
     {
         const Vec3f cohesion_force = avg_position_ / n_neighbors_ - position_;
-        const Vec3f alignment_force = avg_speed_ / n_neighbors_ - speed_;
+        const Vec3f alignment_force = avg_velocity_ / n_neighbors_ - velocity_;
 
-        speed_incr += cohesion_weight * cohesion_force;
-        speed_incr += align_weight * alignment_force;
+        velocity_incr += cohesion_weight * cohesion_force;
+        velocity_incr += align_weight * alignment_force;
     }
 
     const float dv_x = -0.5 + static_cast<float>(std::rand()) / RAND_MAX;
@@ -229,52 +229,52 @@ void Boid::update_no_ang_speed_clamp(float t)
     const float dv_z = -0.5 + static_cast<float>(std::rand()) / RAND_MAX;
 
     const Vec3f random_force = randomness_ * Vec3f(dv_x, dv_y, dv_z);
-    speed_incr += random_force;
+    velocity_incr += random_force;
 
-    speed_incr += proximity_force_;
+    velocity_incr += proximity_force_;
 
     // Clamp speed if needed
     float tmp_max_speed = MovingObject::getMaxSpeed();
-    speed_ += speed_incr;
-    if (speed_.norm() > tmp_max_speed)
-        speed_ = tmp_max_speed * speed_.normalized();
+    velocity_ += velocity_incr;
+    if (velocity_.norm() > tmp_max_speed)
+        velocity_ = tmp_max_speed * velocity_.normalized();
 
     // Update position
     const float dt = (t - last_t_);
     last_t_ = t;
-    position_ += speed_ * dt;
+    position_ += velocity_ * dt;
 
     // Update color: Red if a lot of proximity forces
-    const double cos_angle_x = 0.5 * (1 + speed_.dot(Vec3f::UnitX()) / speed_.norm());
-    const double cos_angle_y = 0.5 * (1 + speed_.dot(Vec3f::UnitY()) / speed_.norm());
-    const double cos_angle_z = 0.5 * (1 + speed_.dot(Vec3f::UnitZ()) / speed_.norm());
+    const double cos_angle_x = 0.5 * (1 + velocity_.dot(Vec3f::UnitX()) / velocity_.norm());
+    const double cos_angle_y = 0.5 * (1 + velocity_.dot(Vec3f::UnitY()) / velocity_.norm());
+    const double cos_angle_z = 0.5 * (1 + velocity_.dot(Vec3f::UnitZ()) / velocity_.norm());
     color_ = Vec3f(cos_angle_x, cos_angle_y, cos_angle_z);
 
     // Clear
     n_neighbors_ = 0;
     avg_position_ = Vec3f(0, 0, 0);
-    avg_speed_ = Vec3f(0, 0, 0);
+    avg_velocity_ = Vec3f(0, 0, 0);
     proximity_force_ = Vec3f(0, 0, 0);
 }
 
 void Boid::update(float t)
 {
-    Vec3f speed_incr(0, 0, 0);
+    Vec3f velocity_incr(0, 0, 0);
     float max_angular_speed = 0.05f; // 0.05f  in deg/s, to avoid instantaneous flips
     float max_angular_speed_rad = max_angular_speed * 3.14/180.0; 
 
     // if (n_neighbors_ != 0)
     // {
     //     const Vec3f cohesion_force = avg_position_ / n_neighbors_ - position_;
-    //     const Vec3f alignment_force = avg_speed_ / n_neighbors_ - speed_;
+    //     const Vec3f alignment_force = avg_velocity_ / n_neighbors_ - velocity_;
     if (neighbor_confidence_weight_sum_ > 0.0) {
         Vec3f cohesion_force  = (avg_position_ / neighbor_confidence_weight_sum_) - position_;
-        Vec3f alignment_force = (avg_speed_ / neighbor_confidence_weight_sum_) - speed_;
+        Vec3f alignment_force = (avg_velocity_ / neighbor_confidence_weight_sum_) - velocity_;
 
         float cohesion_weight = MovingObject::getCohesionWeight();
-        speed_incr += cohesion_weight * cohesion_force;
+        velocity_incr += cohesion_weight * cohesion_force;
         float align_weight = MovingObject::getAlignmentWeight();
-        speed_incr += align_weight * alignment_force;
+        velocity_incr += align_weight * alignment_force;
     }
 
     const float dv_x = -0.5 + static_cast<float>(std::rand()) / RAND_MAX;
@@ -283,40 +283,40 @@ void Boid::update(float t)
 
     float force_randomness = MovingObject::getForceRandomness();
     const Vec3f random_force = force_randomness * Vec3f(dv_x, dv_y, dv_z);
-    speed_incr += random_force;
+    velocity_incr += random_force;
     PLOG_DEBUG << "random force in update: " << random_force;
-    // std::cout << " speed inc (rand)" << speed_incr << " " ;
+    // std::cout << " speed inc (rand)" << velocity_incr << " " ;
 
-    speed_incr += proximity_force_;
-    // std::cout << " speed inc" << speed_incr << " " ;
+    velocity_incr += proximity_force_;
+    // std::cout << " speed inc" << velocity_incr << " " ;
 
     // NEW:  add external forces directly
-    // speed_incr += external_object_force_;
+    // velocity_incr += external_object_force_;
     float tmp_max_speed = MovingObject::getMaxSpeed();
     // time step
     const float dt = (t - last_t_);
     last_t_ = t;
 
-    const Vec3f target_speed = speed_ + speed_incr;
-    float current_speed_norm = speed_.norm();
-    float target_speed_norm = target_speed.norm();
+    const Vec3f target_velocity = velocity_ + velocity_incr;
+    float current_velocity_norm = velocity_.norm();
+    float target_velocity_norm = target_velocity.norm();
 
     // Handle boid becoming stationary or starting from rest
-    if (current_speed_norm < 1e-6) {
-        speed_ = target_speed;
+    if (current_velocity_norm < 1e-6) {
+        velocity_ = target_velocity;
     } else {
-        const Vec3f current_direction = speed_.normalized();
+        const Vec3f current_direction = velocity_.normalized();
 
         // Handle target speed close to zero
-        if (target_speed_norm < 1e-6) {
-            speed_ = Vec3f::Zero();
+        if (target_velocity_norm < 1e-6) {
+            velocity_ = Vec3f::Zero();
         } else {
-            const Vec3f target_direction = target_speed.normalized();
+            const Vec3f target_direction = target_velocity.normalized();
             const Vec3f rotation_axis_unnormalized = current_direction.cross(target_direction);
             
             if (rotation_axis_unnormalized.norm() < 1e-6) {
                 // The direction doesn't change, just the magnitude
-                speed_ = target_direction * target_speed_norm;
+                velocity_ = target_direction * target_velocity_norm;
             } else {
                 const Vec3f rotation_axis = rotation_axis_unnormalized.normalized();
                 
@@ -331,9 +331,9 @@ void Boid::update(float t)
                 }
 
                 Eigen::AngleAxisf rotation(clamped_angle, rotation_axis);
-                Vec3f new_speed_direction = rotation * current_direction;
+                Vec3f new_velocity_direction = rotation * current_direction;
                 
-                speed_ = new_speed_direction * target_speed_norm;
+                velocity_ = new_velocity_direction * target_velocity_norm;
             }
         }
     }
@@ -341,19 +341,19 @@ void Boid::update(float t)
     // for contribution from non-boid objects, bypass the angle limitation
     // we expect a strong reaction to fence, target, but keep smooth sterring when
     // boid interact with one another (well TODO, except for when they almost collide!)
-    speed_+= external_object_force_;
+    velocity_+= external_object_force_;
     // Clamp speed 
-    if (speed_.norm() > tmp_max_speed)
-        speed_ = tmp_max_speed * speed_.normalized();
+    if (velocity_.norm() > tmp_max_speed)
+        velocity_ = tmp_max_speed * velocity_.normalized();
 
     // Update position
-    position_ += speed_ * dt;
+    position_ += velocity_ * dt;
     // std::cout << " speed: "<< position_ << std::endl;
 
     // Update color: Red if a lot of proximity forces
-    const double cos_angle_x = 0.5 * (1 + speed_.dot(Vec3f::UnitX()) / speed_.norm());
-    const double cos_angle_y = 0.5 * (1 + speed_.dot(Vec3f::UnitY()) / speed_.norm());
-    const double cos_angle_z = 0.5 * (1 + speed_.dot(Vec3f::UnitZ()) / speed_.norm());
+    const double cos_angle_x = 0.5 * (1 + velocity_.dot(Vec3f::UnitX()) / velocity_.norm());
+    const double cos_angle_y = 0.5 * (1 + velocity_.dot(Vec3f::UnitY()) / velocity_.norm());
+    const double cos_angle_z = 0.5 * (1 + velocity_.dot(Vec3f::UnitZ()) / velocity_.norm());
     color_ = Vec3f(cos_angle_x, cos_angle_y, cos_angle_z);
 
 }
@@ -361,7 +361,7 @@ void Boid::update(float t)
 void Boid::resetAccumulators() {
     n_neighbors_ = 0;
     avg_position_ = Vec3f(0, 0, 0);
-    avg_speed_ = Vec3f(0, 0, 0);
+    avg_velocity_ = Vec3f(0, 0, 0);
     proximity_force_ = Vec3f(0, 0, 0);
     external_object_force_ = Vec3f(0, 0, 0);
     neighbor_confidence_weight_sum_ = 0; 
@@ -385,7 +385,7 @@ void Boid::draw_wing() const
 //     glPushMatrix();
 //
 //     glTranslatef(position_[0], position_[1], position_[2]);
-//     GlUtils::align_view(speed_);
+//     GlUtils::align_view(velocity_);
 //     GlUtils::draw_box(Vec3f(0.6, 0.1, 0.1), color_);
 //
 //     bool wing_beat = true;
@@ -417,7 +417,7 @@ void Boid::draw() const
 
     // move boid in place and orient it properly
     glTranslatef(position_[0], position_[1], position_[2]);
-    GlUtils::align_view(speed_);
+    GlUtils::align_view(velocity_);
 
     // draw first arm of the "X"
     glPushMatrix();

@@ -18,9 +18,9 @@ float MovingObject::s_vision_distance = 5.0f;
 float MovingObject::s_vision_FOV = 90.0f;
 float MovingObject::s_max_speed = 5.0f;
 float MovingObject::s_target_attraction_weight = 0.02f;
-float MovingObject::s_target_speed_alignment_weight = 0.03f;
+float MovingObject::s_target_velocity_alignment_weight = 0.03f;
 float MovingObject::s_waypoint_attraction_weight = 0.02f;
-float MovingObject::s_waypoint_speed_alignment_weight = 0.03f;
+float MovingObject::s_waypoint_velocity_alignment_weight = 0.03f;
 float MovingObject::s_fence_repel_weight = 50.0f;
 float MovingObject::s_fence_size = 15.0f;
 float MovingObject::s_min_cos_angle = 0.5f;
@@ -60,13 +60,13 @@ float MovingObject::getTargetAttractionWeight() {
     return s_target_attraction_weight;
 }
 float MovingObject::getTargetSpeedAlignmentWeight() {
-    return s_target_speed_alignment_weight;
+    return s_target_velocity_alignment_weight;
 }
 float MovingObject::getWaypointAttractionWeight() {
     return s_target_attraction_weight;
 }
 float MovingObject::getWaypointSpeedAlignmentWeight() {
-    return s_target_speed_alignment_weight;
+    return s_target_velocity_alignment_weight;
 }
 float MovingObject::getMinCosAngle() {
     return s_min_cos_angle;
@@ -106,13 +106,13 @@ void MovingObject::setTargetAttractionWeight(float weight) {
     s_target_attraction_weight = weight;
 }
 void MovingObject::setTargetSpeedAlignmentWeight(float weight) {
-    s_target_speed_alignment_weight = weight;
+    s_target_velocity_alignment_weight = weight;
 }
 void MovingObject::setWaypointAttractionWeight(float weight) {
     s_target_attraction_weight = weight;
 }
 void MovingObject::setWaypointSpeedAlignmentWeight(float weight) {
-    s_target_speed_alignment_weight = weight;
+    s_target_velocity_alignment_weight = weight;
 }
 void MovingObject::setMinCosAngle(float value) {
     s_min_cos_angle = value;
@@ -130,7 +130,7 @@ void MovingObject::setMaxSpeed(float speed) {
 }
 
 // void MovingObject::set_velocity(const Vec3f& new_velocity) {
-//         speed_ = new_velocity; 
+//         velocity_ = new_velocity; 
 //     }
 void MovingObject::setForceRandomness(float value) {
     s_force_randomness = value;
@@ -149,9 +149,9 @@ bool MovingObject::are_neighbors(const MovingObject &left, const MovingObject &r
     return (left.get_position() - right.get_position()).norm() < temp_neighbor_max_dist;
 }
 
-MovingObject::MovingObject(const Vec3f &position, const Vec3f &speed) : id_(next_id_++),
+MovingObject::MovingObject(const Vec3f &position, const Vec3f &velocity) : id_(next_id_++),
                                                                         position_(position),
-                                                                        speed_(speed),
+                                                                        velocity_(velocity),
                                                                         boid_type_(-1)
 {
 }

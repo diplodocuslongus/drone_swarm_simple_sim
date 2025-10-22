@@ -25,7 +25,7 @@ public:
     // Vec3f get_exerced_proximity_force_cub(const MovingObject &object) const override;
 
     void update(float t) override;
-    void update_no_ang_speed_clamp(float t) override;
+    void update_no_ang_velocity_clamp(float t) override;
 
 
     void draw() const override;

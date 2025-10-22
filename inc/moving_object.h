@@ -28,9 +28,9 @@ private:
     static float s_min_cos_angle; 
     static float s_max_speed;
     static float s_target_attraction_weight;
-    static float s_target_speed_alignment_weight;
+    static float s_target_velocity_alignment_weight;
     static float s_waypoint_attraction_weight;
-    static float s_waypoint_speed_alignment_weight;
+    static float s_waypoint_velocity_alignment_weight;
     static float s_fence_repel_weight;
     static float s_fence_size; // fence radius for spheroid or side for cuboid
     static float s_force_randomness; // 
@@ -70,22 +70,22 @@ public:
     static void setFenceSize(float size);
     static void setForceRandomness(float value);
 
-    MovingObject(const Vec3f &position, const Vec3f &speed = Vec3f(0, 0, 0));
+    MovingObject(const Vec3f &position, const Vec3f &velocity = Vec3f(0, 0, 0));
 
     virtual ~MovingObject() = default;
 
     inline const Vec3f &get_position() const { return position_; }
-    inline const Vec3f &get_speed() const { return speed_; }
+    inline const Vec3f &get_velocity() const { return velocity_; }
     // for the waypoint manager
     void set_position(const Vec3f& new_position) { position_ = new_position; }
-    void set_speed(const Vec3f& new_speed) { speed_ = new_speed; }
+    void set_velocity(const Vec3f& new_velocity) { velocity_ = new_velocity; }
     
     inline int get_id() const { return id_; }
     inline int get_type() const { return boid_type_; }
 
     virtual Vec3f get_exerted_proximity_force(const MovingObject &boid) const = 0;
     virtual void update(float t) = 0;
-    virtual void update_no_ang_speed_clamp(float t) = 0;
+    virtual void update_no_ang_velocity_clamp(float t) = 0;
     virtual void draw() const = 0;
     // virtual void draw_boid() const = 0;
 
@@ -103,7 +103,7 @@ protected:
     int boid_type_;
 
     Vec3f position_;
-    Vec3f speed_;
+    Vec3f velocity_;
 };
 
 #endif // MOVING_OBJECT_H

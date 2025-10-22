@@ -12,10 +12,10 @@
 #include <iostream>
 
 
-Target::Target(const Vec3f &position, UpdateSpeedFunc update_speed_func) : MovingObject(position)
+Target::Target(const Vec3f &position, UpdateSpeedFunc update_velocity_func) : MovingObject(position)
 {
     boid_type_ = 2; // TARGET
-    update_speed_func_ = update_speed_func;
+    update_velocity_func_ = update_velocity_func;
     last_t_ = 0;
     update(0);
 }
@@ -25,10 +25,10 @@ Target::Target(const Vec3f &position, UpdateSpeedFunc update_speed_func) : Movin
 //         return Vec3f(0, 0, 0);
 //
 //     float tmp_target_attract_weight = MovingObject::getTargetAttractionWeight();
-//     float tmp_target_speed_align_weight = MovingObject::getTargetSpeedAlignmentWeight();
+//     float tmp_target_velocity_align_weight = MovingObject::getTargetSpeedAlignmentWeight();
 //     Vec3f posdif = position_ - object.get_position(); // position_ : target position, object pos: that of a boid
 //     Vec3f force =  tmp_target_attract_weight * posdif +
-//            tmp_target_speed_align_weight * (speed_ - object.get_speed()); // Attract
+//            tmp_target_velocity_align_weight * (velocity_ - object.get_velocity()); // Attract
 //     if (posdif.norm() < 1.1){
 //         // force = Vec3f(0.0,0.0,0.0); 
 //         // std::cout << "force near target: "<< force.norm() <<std::endl;
@@ -48,7 +48,7 @@ Vec3f Target::get_exerted_proximity_force(const MovingObject &object) const
     
     // Weights and constants depend on the mode
     float attract_weight;
-    float speed_align_weight;
+    float velocity_align_weight;
     
     // Waypoint parameters (can be defined as static consts or member variables)
     const float WAYPOINT_MIN_RADIUS = 3.0f; 
@@ -59,10 +59,10 @@ Vec3f Target::get_exerted_proximity_force(const MovingObject &object) const
         
         // Waypoint-specific weights
         attract_weight     = MovingObject::getWaypointAttractionWeight();
-        speed_align_weight = MovingObject::getWaypointSpeedAlignmentWeight();
+        velocity_align_weight = MovingObject::getWaypointSpeedAlignmentWeight();
         
         // Alignment Force
-        force += speed_align_weight * (speed_ - object.get_speed());
+        force += velocity_align_weight * (velocity_ - object.get_velocity());
 
         // Position Force: Attraction/Repulsion for fly-over
         if (dist > WAYPOINT_MIN_RADIUS) {
@@ -79,24 +79,24 @@ Vec3f Target::get_exerted_proximity_force(const MovingObject &object) const
         
         // Target object weights
         attract_weight     = MovingObject::getTargetAttractionWeight();
-        speed_align_weight = MovingObject::getTargetSpeedAlignmentWeight();
+        velocity_align_weight = MovingObject::getTargetSpeedAlignmentWeight();
 
         // Standard Attraction and Alignment (for stopping/hovering)
         force += attract_weight * diff;
-        force += speed_align_weight * (speed_ - object.get_speed());
+        force += velocity_align_weight * (velocity_ - object.get_velocity());
     }
 
     return force;
 }
 void Target::update(float t)
 {
-    update_speed_func_(t, speed_);
+    update_velocity_func_(t, velocity_);
     const float dt = (t - last_t_);
     last_t_ = t;
-    position_ += speed_ * dt;
+    position_ += velocity_ * dt;
 }
 
-void Target::update_no_ang_speed_clamp(float t)
+void Target::update_no_ang_velocity_clamp(float t)
 {
 }
 void Target::draw() const

@@ -37,7 +37,7 @@ void RefAxis::update(float t)
 {
 }
 
-void RefAxis::update_no_ang_speed_clamp(float t)
+void RefAxis::update_no_ang_velocity_clamp(float t)
 {
 }
 void drawGrid(float size, int divisions) {

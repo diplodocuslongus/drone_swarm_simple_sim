@@ -60,7 +60,7 @@ private:
 
     // int n_neighbors_;
     // Vec3f avg_position_;    // Cohesion
-    // Vec3f avg_speed_;       // Alignment
+    // Vec3f avg_velocity_;       // Alignment
     // Vec3f proximity_force_; // Separation + Target attraction
 };
 

@@ -24,7 +24,7 @@ public:
 
     Target(
         const Vec3f &position,
-        UpdateSpeedFunc update_speed_func = [](float, Vec3f &) {});
+        UpdateSpeedFunc update_velocity_func = [](float, Vec3f &) {});
 
     virtual ~Target() = default;
 
@@ -33,14 +33,14 @@ public:
     void set_mode(TargetMode mode) { mode_ = mode; }
 
     void update(float t) override;
-    void update_no_ang_speed_clamp(float t) override;
+    void update_no_ang_velocity_clamp(float t) override;
 
     void draw() const override;
 
 
 private:
     float last_t_;
-    UpdateSpeedFunc update_speed_func_;
+    UpdateSpeedFunc update_velocity_func_;
     TargetMode mode_; 
 };
 
