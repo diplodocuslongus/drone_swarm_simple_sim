@@ -6,10 +6,14 @@
  *********************************************************************************************************************/
 
 #define USE_MESSAGES // boids get each others' position from messages
-#define USE_WAYPOINT // define and use waypoints for navigation
+// #define USE_WAYPOINT // define and use waypoints for navigation
 #define WP_NAV_PRESERVE_FORMATION // preserve swarm formation when navigating with waypoints
-#define SHOW_PATH    // show swarm COG sliding window and whole trajectory
+#define WP_BACK_HOME // waypoint behavior: back to first waypoint after last (loop)
+
+// #define SHOW_PATH    // show swarm COG sliding window and whole trajectory
 // #define SHOW_SLIDE_WIN_PATH    // show swarm COG sliding window trajectory ( comet like trail)
+#define SCREENSHOT_AT_X_SECONDS // captures screenshot at X seconds (set x where this define resides)
+
 #include <vector>
 #define FREEGLUT_EXT
 #define ENABLE_GUI
@@ -392,6 +396,15 @@ int parse_command_line_args(int argc, char** argv) {
                 }
             }
         }
+        else if (arg == "--viewxtrans") {
+            if (i + 1 < argc) {
+                try {
+                    g_ogl_trans_x = std::stof(argv[++i]);
+                } catch (const std::exception& e) {
+                    std::cerr << "Error: ." << std::endl;
+                }
+            }
+        }
     }
     return 0; // 
 }
@@ -562,9 +575,9 @@ void init(void)
     // define the whole path as a vector 
     std::vector<Vec3f> triangle_path = {
     Vec3f(10, 0, 0),      // Waypoint 1
-    Vec3f(0, 10, 0),      // Waypoint 2
-    Vec3f(-10, 0, 0),      // Waypoint 3 
-    Vec3f(-10, -10, 0)      // Waypoint 4 (The final hover point)
+    Vec3f(10, 10, 0),      // Waypoint 2
+    Vec3f(20, 0, 0),      // Waypoint 3 
+    Vec3f(30, 10, 0)      // Waypoint 4 (The final hover point)
 };
 
     // WaypointManager
@@ -573,21 +586,16 @@ void init(void)
     // comment if want enable waypoint from keyboard
     crt_waypoint_ = &waypoints_.back();
 #endif
+    // define targets locations
+    // different targets appears when pressing space
     // for (double i : {-2 * scale, 2 * scale})
     //     targets_.emplace_back(scale * Vec3f(i, 0, 0));
     //
     // for (double k : {-9, 9})
     //     targets_.emplace_back(scale * Vec3f(0, 0, k));
      
-    // define targets locations
     // TODO (maybe): pass target locations from the command line
     targets_.emplace_back( Vec3f(20, 0, 2));
-
-    // for (double i : {-2 * scale, 2 * scale})
-    //     targets_.emplace_back(scale * Vec3f(i, 0, 0));
-    //
-    // for (double k : {-9, 9})
-    //     targets_.emplace_back(scale * Vec3f(0, 0, k));
 
     // define obstacle
     // for (double j : {-7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7})
@@ -603,6 +611,7 @@ void init(void)
     // float cubdim = 3.0;
     fences_.emplace_back(scale * Vec3f(-fence_size, -fence_size, -0),scale * Vec3f(fence_size, fence_size, 2*fence_size)); // cuboid above the ground
     // fences_.emplace_back(scale * Vec3f(-fence_size, -fence_size, -fence_size),scale * Vec3f(fence_size, fence_size, fence_size)); // cuboid
+
     // define ref axis
     ref_axis_.emplace_back( Vec3f(0, 0, 0), Vec3f(0, 0, 0)); // 
 }
@@ -812,56 +821,57 @@ void systemEvolution()
     static float delta_time_since_frozen = 0.0f;
     static bool is_frozen = false;
     if (g_stop_simulation && !is_frozen) {
-    // --- FREEZE SEQUENCE (Execute ONCE upon stop) ---
-    is_frozen = true;
-    frozen_sim_time = nowtime;
-    std::cout << "is frozen ="<<is_frozen << std::endl;
-    
-    // 1. Save Original Weights
-    g_original_weights.cohesion = MovingObject::getCohesionWeight();
-    g_original_weights.separation = MovingObject::getSeparationWeight();
-    g_original_weights.alignment = MovingObject::getAlignmentWeight();
-    // ... (TODO later Save waypoint weights ) ...
+        // Freeze sequence (executed ONCE when hover is ordered)
+        is_frozen = true;
+        frozen_sim_time = nowtime; //record current time to offset the subsequent simtime if resume fly
+        // std::cout << "is frozen ="<<is_frozen << std::endl;
+        
+        // save original weights
+        g_original_weights.cohesion = MovingObject::getCohesionWeight();
+        g_original_weights.separation = MovingObject::getSeparationWeight();
+        g_original_weights.alignment = MovingObject::getAlignmentWeight();
+        // ... (TODO later Save waypoint weights ) ...
 
-    // 2. Kill All Force Weights (Prevents collapse)
-    // MovingObject::setCohesionWeight(0.0f);
-    // MovingObject::setSeparationWeight(0.0f);
-    MovingObject::setAlignmentWeight(0.0f);
-    // ... (Set all other active weights to 0.0f) ...
+        // kill all force weights (prevents collapse)
+        // MovingObject::setCohesionWeight(0.0f);
+        // MovingObject::setSeparationWeight(0.0f);
+        MovingObject::setAlignmentWeight(0.0f);
+        // ... (Set all other active weights to 0.0f) ...
 
-    // 3. Kill Momentum
-    for (auto &boid : boids_) {
-        boid.set_speed(Vec3f::Zero()); 
-    }
-    std::cout << "all boid speed to zero =" << std::endl;
-} 
-else if (!g_stop_simulation && is_frozen) { // to move again
-    // --- UNFREEZE SEQUENCE (Execute ONCE upon resume) ---
-    // TODO: need to reset the force and all to a move forward direction, see the if(is_frozen) section
-    is_frozen = false;
-    std::cout << "is frozen 2 ="<<is_frozen << std::endl;
-    
-    // Restore Original Weights
-    MovingObject::setCohesionWeight(g_original_weights.cohesion);
-    MovingObject::setSeparationWeight(g_original_weights.separation);
-    MovingObject::setAlignmentWeight(g_original_weights.alignment);
+        // kill momentum or ... decelerate
+        for (auto &boid : boids_) {
+            boid.set_speed(Vec3f::Zero()); 
+        }
+        // std::cout << "all boid speed to zero =" << std::endl;
+    } 
+    else if (!g_stop_simulation && is_frozen) { // to move again
+        // unfreeze sequence (execute ONCE upon resume motion) presss h again
+        // TODO: need to reset the force and all to a move forward direction, see the if(is_frozen) section
+        is_frozen = false;
+        std::cout << "is frozen 2 ="<<is_frozen << std::endl;
+        
+        // Restore Original Weights
+        MovingObject::setCohesionWeight(g_original_weights.cohesion);
+        MovingObject::setSeparationWeight(g_original_weights.separation);
+        MovingObject::setAlignmentWeight(g_original_weights.alignment);
         for (auto &boid : boids_) {
             float u,v,w;
-        u = static_cast<float>(0.1+rand()) / static_cast<float>(RAND_MAX);
-        v = static_cast<float>(0.01);
-        w = static_cast<float>(0.0);
-            
+            // same as for the taking off config
+            u = static_cast<float>(0.1+rand()) / static_cast<float>(RAND_MAX);
+            v = static_cast<float>(0.01);
+            w = static_cast<float>(0.0);
+                
             Vec3f restart_velocity(u,v,w);
             boid.set_speed(restart_velocity); 
-        }
-    // frozen_sim_time 
-    // ... (Restore all other active weights) ...
-}
+            }
+        // frozen_sim_time 
+        // ... (Restore all other active weights) ...
+    }
 //  if (g_stop_simulation && is_frozen) {
  if (g_stop_simulation) {
     // std::cout << "is frozen 3 ="<<is_frozen << std::endl;
-// if (0){ // g_stop_simulation) {
-// else  if (g_stop_simulation) {
+    // if (0){ // g_stop_simulation) {
+    // else  if (g_stop_simulation) {
     // MovingObject::setAlignmentWeight(0.0f);
     // MovingObject::setAlignmentWeight(0.0f);
     // MovingObject::setAlignmentWeight(g_original_weights.alignment);
@@ -888,96 +898,91 @@ else if (!g_stop_simulation && is_frozen) { // to move again
         boid.resetAccumulators();
 
 #ifdef USE_MESSAGES
+        // note: now use a delta time to account for when the swarm hovers (otherway: use another global sim time)
         boid.processMessagesAndInterpolate(nowtime - delta_time_since_frozen); // populates avg_position_, avg_speed_, proximity_force_, n_neighbors_
         // boid.processMessagesAndInterpolate(nowtime); // populates avg_position_, avg_speed_, proximity_force_, n_neighbors_
-        // if (boid.get_id() == 1) {
-        // std::cout << "\n\n\nafter messages: nb neighb=" << boid.get_n_neighbors()
-    //               << " prox frce=" << boid.get_proximity_force().norm() << std::endl;
-    // }
-
-    if (crt_target_) {
-        boid.add_neighbor(*crt_target_);
-        // if (boid.get_id() == 0)
-        //     std::cout << "after add target: prox=" << boid.get_proximity_force().norm() << std::endl;
-    }
-    // new: always record swarm COG
-    // get swarm COG from the swarm metrics
-    // Vec3f swarm_cog = g_metrics.swarm_center_of_gravity(boids_);
-     // record the COG for the trace
-    // g_metrics.record_swarm_cog(swarm_cog); 
-    if (crt_waypoint_) {
+        if (crt_target_) {
+            boid.add_neighbor(*crt_target_);
+            // if (boid.get_id() == 0)
+            //     std::cout << "after add target: prox=" << boid.get_proximity_force().norm() << std::endl;
+        }
+        // always record swarm COG
         // get swarm COG from the swarm metrics
         Vec3f swarm_cog = g_metrics.swarm_center_of_gravity(boids_);
-        // record the COG for the trace
+         // record the COG for the trace
         g_metrics.record_swarm_cog(swarm_cog); 
-  
-        // update the path progression based on where the swarm (its COG) is w.r.t. the waypoint
-        crt_waypoint_-> update_path_progression(swarm_cog); 
-        // virtual waypoint position depends on the current boid's position w.r.t the swarm's COG
-        Vec3f virtual_waypoint;
+        if (crt_waypoint_) {
+            // get swarm COG from the swarm metrics
+            // Vec3f swarm_cog = g_metrics.swarm_center_of_gravity(boids_);
+            // record the COG for the trace
+            // g_metrics.record_swarm_cog(swarm_cog); 
+      
+            // update the path progression based on where the swarm (its COG) is w.r.t. the waypoint
+            crt_waypoint_-> update_path_progression(swarm_cog); 
+            // virtual waypoint position depends on the current boid's position w.r.t the swarm's COG
+            Vec3f virtual_waypoint;
 
-        // get the actual Target waypoint the boid should follow
-        // (this target waypoint is a MovingObject)
-        // each boid will have its own active target
+            // get the actual Target waypoint the boid should follow
+            // (this target waypoint is a MovingObject)
+            // each boid will have its own active target
 
-        Target& active_target = crt_waypoint_->get_active_target();
-        const Vec3f global_waypoint_pos = active_target.get_position();
+            Target& active_target = crt_waypoint_->get_active_target();
+            const Vec3f global_waypoint_pos = active_target.get_position();
 
-        // current boid's  offset from COG (di = xi - R)
-        Vec3f boid_position = boid.get_position();
-        Vec3f current_offset = boid_position - swarm_cog;
+            // current boid's  offset from COG (di = xi - R)
+            Vec3f boid_position = boid.get_position();
+            Vec3f current_offset = boid_position - swarm_cog;
 
-        // Calculate boid's virtual target position (Ti = W + di)
-        Vec3f virtual_waypoint_pos = global_waypoint_pos + current_offset;
+            // boid's virtual target position (Ti = W + di)
+            Vec3f virtual_waypoint_pos = global_waypoint_pos + current_offset;
 
-        // Create a temporary, local Target object at Ti.
-        Target virtual_target(virtual_waypoint_pos); 
+            // temporary Target object at Ti.
+            Target virtual_target(virtual_waypoint_pos); 
 
 #ifdef WP_NAV_PRESERVE_FORMATION
-        // when using virtual waypoints
-        // formation is preserved
-        boid.add_neighbor(virtual_target);
+            // when using virtual waypoints
+            // formation is preserved
+            boid.add_neighbor(virtual_target);
 #else        
-        // when using only one wapoint for everyone
-        // waypoints will act like targets and break the formation
-        boid.add_neighbor(active_target);
+            // when using only one wapoint for everyone
+            // waypoints will act like targets and break the formation
+            boid.add_neighbor(active_target);
 #endif
-        // if (crt_waypoint_->has_swarm_stopped()) {
-        if (crt_waypoint_->has_swarm_stopped()) {
-            // stop every boid immediately only once
-            // std::cout << "last WP, set speed to zero\n";
-            for (auto &boid : boids_) {
-                if (boid.get_speed().norm() > 0.01f) {
-                // boid.set_speed(Vec3f::Zero()); 
+            if (crt_waypoint_->has_swarm_stopped()) {
+                // stop every boid immediately only once
+                // std::cout << "last WP, set speed to zero\n";
+                for (auto &boid : boids_) {
+                    if (boid.get_speed().norm() > 0.01f) {
+                    // boid.set_speed(Vec3f::Zero()); 
+                    }
+                }
+                // crt_waypoint_ -> reset_swarm_stopped_flag(); // set has stopped flag, will not change the speed again here
+                // crt_waypoint_ -> set_swarm_hover_flag(); // hover flag, used in waypoint manager
+            }
+        }
+#else
+            // old immediate neighbor accumulation
+            for (auto &other : boids_) {
+                if (boid.get_id() != other.get_id()) {
+                    if (MovingObject::are_neighbors(boid, other))
+                        boid.add_neighbor(other);
                 }
             }
-            // crt_waypoint_ -> reset_swarm_stopped_flag(); // set has stopped flag, will not change the speed again here
-            // crt_waypoint_ -> set_swarm_hover_flag(); // hover flag, used in waypoint manager
-        }
-    }
-#else
-        // old immediate neighbor accumulation
-        for (auto &other : boids_) {
-            if (boid.get_id() != other.get_id()) {
-                if (MovingObject::are_neighbors(boid, other))
-                    boid.add_neighbor(other);
-            }
-        }
 #endif
 
-        // always add non-boid objects (these will augment the accumulators)
-        if (crt_target_) boid.add_neighbor(*crt_target_);
-        for (const auto &obstacle : obstacles_) boid.add_neighbor(obstacle);
-        for (const auto &fence : fences_) boid.add_neighbor(fence);
-        for (const auto &ref_axis : ref_axis_) boid.add_neighbor(ref_axis);
+            // always add non-boid objects (these will augment the accumulators)
+            if (crt_target_) boid.add_neighbor(*crt_target_);
+            for (const auto &obstacle : obstacles_) boid.add_neighbor(obstacle);
+            for (const auto &fence : fences_) boid.add_neighbor(fence);
+            for (const auto &ref_axis : ref_axis_) boid.add_neighbor(ref_axis);
 
-        // (optional debug print to confirm accumulators contain contributions)
-        // std::cout << "Boid " << boid.get_id() << " before update: n=" << boid.get_n_neighbors()
-        //           << " prox=" << boid.get_proximity_force().norm()
-        //           << " avgpos=" << boid.get_avg_position() << std::endl;
-        boid.update(nowtime - delta_time_since_frozen);
-        // boid.update(nowtime);
-    }
+            // (optional debug print to confirm accumulators contain contributions)
+            // std::cout << "Boid " << boid.get_id() << " before update: n=" << boid.get_n_neighbors()
+            //           << " prox=" << boid.get_proximity_force().norm()
+            //           << " avgpos=" << boid.get_avg_position() << std::endl;
+            boid.update(nowtime - delta_time_since_frozen);
+            // boid.update(nowtime);
+        }
     
 #ifdef USE_MESSAGES
     // fill in each individual boid messages (its position, speed and corresponding time)
@@ -1248,8 +1253,10 @@ int main(int argc, char **argv)
  
     // simulation duration 
     // int fixed_duration_ms = 5000; // TODO add as a CLI parameter 
+#ifdef SCREENSHOT_AT_X_SECONDS
     // capture screenshot after x seconds
     glutTimerFunc(6*1000.0, timerScreenshotCallback, 0);
+#endif
     glutTimerFunc(simulation_duration_s*1000.0, timerCallback, 0);
     // glutTimerFunc(fixed_duration_ms, timerCallback, 0);
 

@@ -1,18 +1,18 @@
 # drone_swarm_simple_sim
 
 A drone swarm simulation derived from boids principles.
-Very much a WIP.
+A work in progress...
 
 ## From Boids to drones
 
-This started as a fork of ThomasParistech's implementation of Craig Reynolds' boids, which simulates the flocking behaviour of birds, and evolved as a simulation framework to study / understand drone swarms.
+This started as a fork of an implementation of Craig Reynolds' boids, which simulates the flocking behaviour of birds, and evolved as a simulation framework to study / understand drone swarms.
  
 *The basic flocking model consists of three simple steering behaviors which describe how an individual boid maneuvers based on the positions and velocities its nearby flockmates:*
 - *Separation: steer to avoid crowding local flockmates*
 - *Alignment: steer towards the average heading of local flockmates*
 - *Cohesion: steer to move toward the average position of local flockmates*
 
-Features added:
+Features added to the original boid simulation:
 
 - takeoff position and formation can be set
 - cohesion metric to evaluate the `quality` of the swarm formation
@@ -23,7 +23,6 @@ Features added:
 - some utilities (capture screenshot, run the simulation for a fixed duration, ...)
 - trajectory visualization
 - python scripts to analyze cohesion metric, etc...
-
 
 ## Installation
 
@@ -80,7 +79,7 @@ Keyboard inputs.
 - ESC end the simulation
 - ...
 
-## Python scripts
+### Python scripts
 
 They are mainly used to develop specific aspect of the swarm, such as cohesion metric.
 Example of collision penalty strategy:
@@ -88,20 +87,17 @@ Example of collision penalty strategy:
 ![](./images/collision_penalty.png) 
 
 
+### Messaging
 
-## considerations for messaging
+The original boid simulation considered that all each boid has access to all the other boids' position and velocities, instantaneously.
 
-The original boid simulation considered that all each boid has access to all the other boids' position and velocities.
-
-This isn't what happens in a real formation, be it of drones or of animal (in which later case the position of neighbors isn't known at all, birds in a flock don't know the position of their neighbors).
+This isn't what happens in a real formation, be it of drones or of animal (in which later case the position of neighbors isn't known at all, birds in a flock don't know the position (x,y,z) of their neighbors but they can evalute how close or far they are).
 
 So I decided to add a messaging logic into the simulation. This is far from being a simple affair...
 Problems to solve:
 - what date structure to use for the messages, how are messages exchanged between neighbours?
 - how to realistically model message? I chose to "consume" message that is once a boid reads messages, they are gone (no resend)
 - how to deal with the boid evolution when no message is received (i.e. between the interval time between messages, which essentially corresponds to latency)? 
-
-For the second issue :
 
 #### Interpolate messages
 
@@ -111,6 +107,19 @@ Instead of releasing a neighbor’s state only when it “arrives”, we keep a 
 - mimics a realistic communication buffer + prediction scheme.
 
 To be continued...
+
+### Waypoint navigation
+
+Currently uses pre-defined waypoints, and enabled at compile time by the `#define USE_WAYPOINT` directive in main.cpp.
+
+Possible behaviours and tunnings of the swarm w.r.t. waypoints
+- adjust waypoint threshold: min turning distance from drone to WP
+- behaviour after last WP: 
+    - fly over and pursue path ahead
+    - back to first WP (will loop)
+    - hover over (need some work)
+    - land (TODO)
+    -
 
 ## simulation parameters
 
@@ -146,7 +155,7 @@ Original boid algorithm: https://www.red3d.com/cwr/boids/
 - key press M to sunddenly increase the latency to 6000s (simulate jamming, remove messages)
 - update coehsion metric
 - waypoints navigation
-- maintain cohesion when using waypoints navigation
+- maintain cohesion when using waypoints navigation (need some more work!)
 
 ## Observations and notes
 

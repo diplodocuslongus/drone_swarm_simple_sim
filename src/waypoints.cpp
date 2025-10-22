@@ -12,30 +12,28 @@
 
 #define USE_3
 
+// in order, this does:
+// Init waypoints_ with the passed path
+// Init active_waypoint_index_ 
+// Init active_target_ using only the first waypoint's position.
+// 
 WaypointManager::WaypointManager(const std::vector<Vec3f>& path) 
-    // Initialize waypoints_ with the passed path
     : waypoints_(path), 
-    
-    // Initialize active_waypoint_index_
       active_waypoint_index_(0),
-      
-    // Initialize active_target_ using only the first waypoint's position.
-    // The Target constructor will use its default (do-nothing) UpdateSpeedFunc.
       active_target_(path.at(0)) 
 {
-    // Ensure the path is not empty before proceeding
+    // do nothing if no path (no WP)
     if (path.empty()) {
-        // TODO (if needed) Handle error 
         return; 
     }
 
-    // Set initial mode for the first waypoint
+    // Set initial mode for the first waypoint (currently not used)
     active_target_.set_mode(TargetMode::ATTRACT_AND_FLY_OVER);
     
-    // Set target's initial speed toward next waypoint
+    // Set target's initial velocity toward next waypoint
     if (path.size() > 1) {
         Vec3f initial_direction = (path.at(1) - path.at(0)).normalized();
-        // You should define a constant for the desired Boid flight speed
+        // TODO: define a constant for the desired Boid flight speed
         const float DESIRED_FLIGHT_SPEED = 0.0f; 
         active_target_.set_speed(initial_direction * DESIRED_FLIGHT_SPEED);
     } else {

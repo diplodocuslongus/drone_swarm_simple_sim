@@ -60,7 +60,7 @@ void CameraTrackball::init(const Vec3f &center, float r0)
         left_ = (Vec3f::UnitZ().cross(front_)).normalized();
         up_ = (front_.cross(left_)).normalized();
         eye = center_ - r_ * front_;
-        up = Vec3f(0.0, 0.0, 1.0); // Your existing up vector for trackball
+        up = Vec3f(0.0, 0.0, 1.0); // existing up vector for trackball
     }
     
     glMatrixMode(GL_MODELVIEW);
