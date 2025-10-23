@@ -7,7 +7,7 @@
 
 #define USE_MESSAGES // boids get each others' position from messages
 #define USE_WAYPOINT // define and use waypoints for navigation
-#define WP_NAV_PRESERVE_FORMATION // preserve swarm formation when navigating with waypoints
+// #define WP_NAV_PRESERVE_FORMATION // preserve swarm formation when navigating with waypoints
 #define WP_BACK_HOME // waypoint behavior: back to first waypoint after last (loop)
 
 // #define SHOW_PATH    // show swarm COG sliding window and whole trajectory
@@ -531,7 +531,8 @@ void add_boid(int b_i,int n_new_boids)
         w = static_cast<float>(0.0);
     }
     // std::cout << x << ", " << y<< ", " <<z << "\n" ;
-    boids_.emplace_back(scale * Vec3f(x, y, z), 0.1 * Vec3f(u, v, w));
+    boids_.emplace_back(scale * Vec3f(x, y, z), 0.1 * Vec3f(u, v, w),0.01f);
+    // boids_.emplace_back(scale * Vec3f(x, y, z), 0.1 * Vec3f(u, v, w));
 }
 
 void init(void)

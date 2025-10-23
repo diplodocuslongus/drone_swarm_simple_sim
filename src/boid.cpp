@@ -16,17 +16,27 @@
 
 // message latency
 float Boid::s_message_latency = 0.01; 
+const float Boid::s_max_proximity_force = 50.0f;
+// Vec3f Boid::s_thrust = Vec3f::Zero();
+
 // static setter methods.
 void Boid::setMessageLatency(float latency) {
     s_message_latency = latency;
         std::cout << "mesg latency set to " << Boid::s_message_latency << std::endl;
 }
 
+void Boid::setThrust (Vec3f &thrust) {
+    thrust_force_ = thrust;
+        std::cout << "thrust set " << std::endl;
+}
 float Boid::getMessageLatency() {
     return s_message_latency;
 }
 
-Boid::Boid(const Vec3f &position, const Vec3f &velocity) : MovingObject(position, velocity)
+// new, add mass for inertia forces
+Boid::Boid(const Vec3f &position, const Vec3f &velocity, float mass) 
+    : MovingObject(position, velocity, mass) 
+// Boid::Boid(const Vec3f &position, const Vec3f &velocity) : MovingObject(position, velocity)
 {
     boid_type_ = 1;
 
@@ -116,7 +126,19 @@ Vec3f Boid::get_exerted_proximity_force(const MovingObject &object) const
     // increase proximity force if below min separation distance 
     if (pos_diff_norm < tmp_separation_min_dist)
         tmp_separation_weight *=10.0  ;
-    return tmp_separation_weight * pos_diff / (dist * dist);
+    // NEW for inertia
+    // Calculate the raw force vector (F_raw)
+    Vec3f F_raw = tmp_separation_weight * pos_diff / (dist * dist);
+
+    // CRITICAL: Cap the magnitude of the separation force (Braking Limit)
+    float F_raw_norm = F_raw.norm();
+    if (F_raw_norm > Boid::s_max_proximity_force) {
+        F_raw = F_raw.normalized() * Boid::s_max_proximity_force;
+    }
+
+    return F_raw; // Return the capped force
+    // end NEW for inertia
+    // return tmp_separation_weight * pos_diff / (dist * dist);
 }
 
 // process messages, compute forces and interpolate
@@ -259,14 +281,101 @@ void Boid::update_no_ang_velocity_clamp(float t)
 
 void Boid::update(float t)
 {
+    // The total force accumulator for this frame
+    Vec3f total_force(0, 0, 0); 
+    
+    // Clear the acceleration from the previous frame (must be called first)
+    this->reset_acceleration();
+
+    const float dt = (t - last_t_);
+    last_t_ = t;
+    
+    // -------------------------------------------------------------
+    // 1. Accumulate Steering Forces (Cohesion & Alignment)
+    //    These are calculated as DESIRED ACCELERATIONS (or steering forces)
+    //    We treat them as raw forces F to simplify the conversion.
+    // -------------------------------------------------------------
+    if (neighbor_confidence_weight_sum_ > 0.0) {
+        
+        // Vec3f cohesion_force  = (avg_position_ / neighbor_confidence_weight_sum_) - position_;
+        Vec3f cohesion_force  = (avg_position_ / neighbor_confidence_weight_sum_) - position_;
+        Vec3f alignment_force = (avg_velocity_ / neighbor_confidence_weight_sum_) - velocity_;
+
+        // Accumulate Cohesion
+        float cohesion_weight = MovingObject::getCohesionWeight();
+        total_force += cohesion_weight * cohesion_force;
+        
+        // Accumulate Alignment
+        float align_weight = MovingObject::getAlignmentWeight();
+        total_force += align_weight * alignment_force;
+    }
+
+    // -------------------------------------------------------------
+    // 2. Accumulate Random Force (Noise)
+    // -------------------------------------------------------------
+    const float dv_x = -0.5 + static_cast<float>(std::rand()) / RAND_MAX;
+    const float dv_y = -0.5 + static_cast<float>(std::rand()) / RAND_MAX;
+    const float dv_z = -0.5 + static_cast<float>(std::rand()) / RAND_MAX;
+
+    float force_randomness = MovingObject::getForceRandomness();
+    const Vec3f random_force = force_randomness * Vec3f(dv_x, dv_y, dv_z);
+    total_force += random_force;
+
+    // -------------------------------------------------------------
+    // 3. Accumulate Separation Force (Proximity)
+    // -------------------------------------------------------------
+    total_force += proximity_force_;
+    
+    // -------------------------------------------------------------
+    // 4. ADD EXPLICIT THRUST FORCE (The new control input)
+    // -------------------------------------------------------------
+    total_force += thrust_force_;
+
+    // -------------------------------------------------------------
+    // 5. Apply Forces to the Boid (F=ma)
+    // -------------------------------------------------------------
+    
+    // NOTE: External objects force (fences, etc.) is currently outside this loop.
+    // It must be applied BEFORE the physics step.
+    
+    // Clamp the total force (Thrust Limit): This is your Boid's maximum thrust capacity.
+    // Let's assume a static limit, e.g., s_max_force.
+    const float MAX_THRUST = 1.0f; // Define a suitable max thrust magnitude
+    if (total_force.norm() > MAX_THRUST) {
+        total_force = total_force.normalized() * MAX_THRUST;
+    }
+
+    // Apply the total force to generate acceleration (a = F / m)
+    this->apply_force(total_force); 
+    
+    // -------------------------------------------------------------
+    // 6. Physics Integration (Update Velocity and Position)
+    // -------------------------------------------------------------
+    
+    // a) External Object Force (This section needs refactoring)
+    // This part is strange: velocity_ += external_object_force_; 
+    // This should also be applied as a force: total_force += external_object_force_.
+    // For now, let's include it in the velocity update, but it's less physically accurate.
+    velocity_ += external_object_force_; // Keep for compatibility, but mark for review
+    
+    // b) Velocity Update (V_new = V_old + A * dt)
+    velocity_ += acceleration_ * dt; // acceleration_ was calculated by apply_force
+
+    // c) Clamp speed
+    float tmp_max_speed = MovingObject::getMaxSpeed();
+    if (velocity_.norm() > tmp_max_speed)
+        velocity_ = tmp_max_speed * velocity_.normalized();
+
+    // d) Update position
+    position_ += velocity_ * dt;
+}
+
+void Boid::update_no_thrust(float t)
+{
     Vec3f velocity_incr(0, 0, 0);
     float max_angular_speed = 0.05f; // 0.05f  in deg/s, to avoid instantaneous flips
     float max_angular_speed_rad = max_angular_speed * 3.14/180.0; 
 
-    // if (n_neighbors_ != 0)
-    // {
-    //     const Vec3f cohesion_force = avg_position_ / n_neighbors_ - position_;
-    //     const Vec3f alignment_force = avg_velocity_ / n_neighbors_ - velocity_;
     if (neighbor_confidence_weight_sum_ > 0.0) {
         Vec3f cohesion_force  = (avg_position_ / neighbor_confidence_weight_sum_) - position_;
         Vec3f alignment_force = (avg_velocity_ / neighbor_confidence_weight_sum_) - velocity_;

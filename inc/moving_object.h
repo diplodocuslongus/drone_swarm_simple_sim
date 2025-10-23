@@ -70,12 +70,23 @@ public:
     static void setFenceSize(float size);
     static void setForceRandomness(float value);
 
-    MovingObject(const Vec3f &position, const Vec3f &velocity = Vec3f(0, 0, 0));
+    // MovingObject(const Vec3f &position, const Vec3f &velocity = Vec3f(0, 0, 0));
+    MovingObject(const Vec3f &position, const Vec3f &velocity = Vec3f(0, 0, 0),  float mass = 1.0f);
 
     virtual ~MovingObject() = default;
 
     inline const Vec3f &get_position() const { return position_; }
     inline const Vec3f &get_velocity() const { return velocity_; }
+    float get_mass() const { return mass_; }
+    void set_mass(float m) { mass_ = m; }
+    
+    // You'll need to expose the acceleration (or a method to apply force)
+    void apply_force(const Vec3f& force); 
+    
+    // You'll need a way to clear the total force/acceleration before each tick
+    void reset_acceleration();
+
+
     // for the waypoint manager
     void set_position(const Vec3f& new_position) { position_ = new_position; }
     void set_velocity(const Vec3f& new_velocity) { velocity_ = new_velocity; }
@@ -85,6 +96,7 @@ public:
 
     virtual Vec3f get_exerted_proximity_force(const MovingObject &boid) const = 0;
     virtual void update(float t) = 0;
+    virtual void update_no_thrust(float t) = 0;
     virtual void update_no_ang_velocity_clamp(float t) = 0;
     virtual void draw() const = 0;
     // virtual void draw_boid() const = 0;
@@ -104,6 +116,9 @@ protected:
 
     Vec3f position_;
     Vec3f velocity_;
+    Vec3f acceleration_;
+    float mass_;
+
 };
 
 #endif // MOVING_OBJECT_H

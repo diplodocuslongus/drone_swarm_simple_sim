@@ -15,16 +15,13 @@ class RefAxis : public MovingObject
 {
 public:
 
-    // RefAxis(
-    //     const Vec3f &position,
-        // UpdateSpeedFunc update_velocity_func = [](float, Vec3f &) {});
-
     RefAxis(const Vec3f &vertice1, const Vec3f &vertice2);
     virtual ~RefAxis() = default;
 
     Vec3f get_exerted_proximity_force(const MovingObject &object) const override;
 
     void update(float t) override;
+    void update_no_thrust(float t) override;
     void update_no_ang_velocity_clamp(float t) override;
 
     void draw() const override;

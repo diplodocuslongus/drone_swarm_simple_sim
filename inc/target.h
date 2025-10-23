@@ -33,6 +33,7 @@ public:
     void set_mode(TargetMode mode) { mode_ = mode; }
 
     void update(float t) override;
+    void update_no_thrust(float t) override;
     void update_no_ang_velocity_clamp(float t) override;
 
     void draw() const override;

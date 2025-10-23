@@ -101,6 +101,9 @@ Vec3f Fence::get_exerted_proximity_force(const MovingObject &object) const
 void Fence::update(float t)
 {
 }
+void Fence::update_no_thrust(float t)
+{
+}
 void Fence::update_no_ang_velocity_clamp(float t)
 {
 }

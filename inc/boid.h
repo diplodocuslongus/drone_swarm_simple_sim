@@ -16,7 +16,8 @@
 class Boid : public MovingObject
 {
 public:
-    Boid(const Vec3f &position, const Vec3f &velocity = Vec3f(0, 0, 0));
+    // Boid(const Vec3f &position, const Vec3f &velocity = Vec3f(0, 0, 0));
+    Boid(const Vec3f &position, const Vec3f &velocity = Vec3f(0, 0, 0),float mass = 1.0f);
     virtual ~Boid() = default;
 
     void add_neighbor(const MovingObject &object);
@@ -24,6 +25,7 @@ public:
     Vec3f get_exerted_proximity_force(const MovingObject &object) const override;
 
     void update(float t) override;
+    void update_no_thrust(float t) override;
     void update_no_ang_velocity_clamp(float t) override;
 
     void draw() const override;
@@ -39,12 +41,15 @@ public:
     static void setMessageLatency(float latency);
     bool getInterpolatedNeighborState(int neighbor_id, double query_time, NeighborState &out);
     void resetAccumulators() ;
+    void setThrust(Vec3f& thrust);
+    Vec3f thrust_force_;
     // for debug
     int get_n_neighbors() const { return n_neighbors_; }
     const Vec3f &get_avg_position() const { return avg_position_; }
     const Vec3f &get_proximity_force() const { return proximity_force_; }
     // for metric & debug
     float getNeihborConfidenceWeightSum() const {return neighbor_confidence_weight_sum_ ;} ;
+    static const float s_max_proximity_force; // = 50.0f; // Tune this value
 
 private:
     // BoidInitPos init_pos_type_;
@@ -63,6 +68,7 @@ private:
     // History of neighbor states after message are released with a latency
     std::unordered_map<int, std::deque<NeighborState>> neighbor_history_;
     static float s_message_latency; // latency now a parameter
+    static Vec3f s_thrust; // 
     double neighbor_confidence_weight_sum_ = 0.0; // TODO find better names
 };
 

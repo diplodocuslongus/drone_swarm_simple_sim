@@ -147,9 +147,33 @@ bool MovingObject::are_neighbors(const MovingObject &left, const MovingObject &r
     return (left.get_position() - right.get_position()).norm() < temp_neighbor_max_dist;
 }
 
-MovingObject::MovingObject(const Vec3f &position, const Vec3f &velocity) : id_(next_id_++),
-                                                                        position_(position),
-                                                                        velocity_(velocity),
-                                                                        boid_type_(-1)
+// original constructor
+// MovingObject::MovingObject(const Vec3f &position, const Vec3f &velocity) : id_(next_id_++),
+//                                                                         position_(position),
+//                                                                         velocity_(velocity),
+//                                                                         boid_type_(-1)
+// {
+// }
+
+MovingObject::MovingObject(const Vec3f &position, const Vec3f &velocity, float mass) 
+    : id_(next_id_++), 
+      position_(position), 
+      velocity_(velocity), 
+      acceleration_(Vec3f::Zero()), // Initialize acceleration to zero
+      mass_(mass),                 // Initialize mass
+      boid_type_(-1) 
 {
+    // Ensure mass is positive
+    if (mass_ <= 0.0f) mass_ = 1.0f;
+}
+
+// Method to add force to the object's acceleration
+void MovingObject::apply_force(const Vec3f& force) {
+    // F = m * a  =>  a = F / m. Accumulate the total acceleration.
+    acceleration_ += force / mass_;
+}
+
+// Method to clear acceleration before the next time step
+void MovingObject::reset_acceleration() {
+    acceleration_ = Vec3f::Zero();
 }
