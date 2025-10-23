@@ -10,9 +10,10 @@
 #include "gl_utils.h"
 #include <iostream>
 
-#define CONTINUE_AFTER_LAST // continues fly after last WP
-// #define LOOP_BACK_AFTER_LAST // continues fly after last WP
+// #define CONTINUE_AFTER_LAST // continues fly after last WP
+// #define LOOP_BACK_AFTER_LAST // go back to 1st WP after last and loop
 // #define USE_2 // attracted back to last WP, breaks formation
+#define USE_3 // attracted back to last WP, breaks formation
 
 // in order, this does:
 // Init waypoints_ with the passed path
@@ -99,9 +100,10 @@ void WaypointManager::update_path_progression_per_boid(const Vec3f& swarm_center
 // the same single waypoint acts like a target for each boids
 
 #ifdef CONTINUE_AFTER_LAST
+// works well for some WP configs
 void WaypointManager::update_path_progression(const Vec3f& swarm_center_position) {
 
-    // --- State 1: Entire path is finished. ---
+    // Entire path is finished. ---
     // The index is NOW pointing BEYOND the last valid waypoint index.
     if (active_waypoint_index_ >= waypoints_.size()) { 
         // We're done. Weights should remain zeroed.
@@ -111,7 +113,7 @@ void WaypointManager::update_path_progression(const Vec3f& swarm_center_position
     const Vec3f& current_waypoint_pos = waypoints_[active_waypoint_index_];
     float distance_to_waypoint = (swarm_center_position - current_waypoint_pos).norm();
 
-    // --- State 2: Check for arrival at the current waypoint. ---
+    // Check for arrival at the current waypoint. ---
     if (distance_to_waypoint < WAYPOINT_THRESHOLD) {
         
         // SWARM HAS REACHED current WAYPOINT, advance to the next one.
@@ -130,7 +132,7 @@ void WaypointManager::update_path_progression(const Vec3f& swarm_center_position
             return; // Exit, the path is complete.
         }
 
-        // --- State 3: Moving to the next (intermediate or final) waypoint. ---
+        // Moving to the next (intermediate or final) waypoint. ---
         
         const Vec3f& next_waypoint_pos = waypoints_[active_waypoint_index_];
         active_target_.set_position(next_waypoint_pos);
@@ -142,24 +144,22 @@ void WaypointManager::update_path_progression(const Vec3f& swarm_center_position
             // active to maintain formation until the swarm reaches the final threshold.
             active_target_.set_velocity(Vec3f::Zero()); 
             
-            // NOTE: DO NOT set weights to zero here yet. Keep them active so 
-            // the virtual targets hold the formation in place as they slow down.
-            
         } else {
             // INTERMEDIATE WP: Look ahead and cruise.
             
             const Vec3f& subsequent_waypoint_pos = waypoints_[active_waypoint_index_ + 1];
             Vec3f direction = (subsequent_waypoint_pos - next_waypoint_pos).normalized();
-            active_target_.set_velocity(direction * 5.0f); 
+            active_target_.set_velocity(direction * 5.0f);  // no effect, WP target have no velocity here
             
-            // we assume the default static values are correct and only need 
-            // to be reset if they were previously set to 0.0f.
+            // only need 
+            // to be reset if previously set to 0.0f.
             MovingObject::setWaypointAttractionWeight(0.02f); 
             MovingObject::setWaypointSpeedAlignmentWeight(0.03f);
         }
     }
 }
 #endif
+
 #ifdef LOOP_BACK_AFTER_LAST
 void WaypointManager::update_path_progression(const Vec3f& swarm_center_position) {
 
@@ -285,23 +285,23 @@ void WaypointManager::update_path_progression(const Vec3f& swarm_center_position
     }
 }
 #endif
-#ifdef USE_3
 
+#ifdef USE_3
 void WaypointManager::update_path_progression(const Vec3f& swarm_center_position) {
     
-    // Check 1: Has the swarm reached the FINAL waypoint? (active_waypoint_index_ is pointing at the last WP)
+    // swarm reached FINAL WP? 
     if (active_waypoint_index_ == waypoints_.size() - 1) { 
         const Vec3f& current_waypoint_pos = waypoints_[active_waypoint_index_];
         float distance_to_waypoint = (swarm_center_position - current_waypoint_pos).norm();
 
         if (distance_to_waypoint < WAYPOINT_THRESHOLD / 1.0) {
-            // SWARM HAS CROSSED THE FINAL THRESHOLD: INITIATE FULL STOP
+            // Swarm has crossed the final WP's threshold: initiate full stop
             
             // Set index to indicate path is complete (will trigger return on next frame)
             active_waypoint_index_++; 
             
             // Turn off all waypoint forces globally.
-            MovingObject::setWaypointAttractionWeight(10.0f); 
+            MovingObject::setWaypointAttractionWeight(0.0f); // was 10
             MovingObject::setWaypointSpeedAlignmentWeight(0.0f);
             // active_target_.set_velocity(Vec3f::Zero()); // TODO: check, but seems unused Ensure the target itself is stopped
 
@@ -328,18 +328,13 @@ void WaypointManager::update_path_progression(const Vec3f& swarm_center_position
         // SWARM HAS REACHED current INTERMEDIATE WAYPOINT, advance to the next one.
         active_waypoint_index_++;
         
-        // Safety check (should be redundant now, but harmless)
-        // if (active_waypoint_index_ >= waypoints_.size()) {
-        //     return; // Should have been caught by Check 1/3, but ensures safety.
-        // }
-
         const Vec3f& next_waypoint_pos = waypoints_[active_waypoint_index_];
         active_target_.set_position(next_waypoint_pos);
 
         // Only look ahead if there's a subsequent waypoint for smooth alignment.
         if (active_waypoint_index_ < waypoints_.size() - 1) {
              Vec3f direction = (waypoints_[active_waypoint_index_ + 1] - next_waypoint_pos).normalized();
-             active_target_.set_velocity(direction * 5.0f); 
+             active_target_.set_velocity(direction * 5.0f);  // not used
         } 
         // else {
         //      // We are now pointing at the final waypoint index (just set the position, speed will be handled by deceleration)
@@ -351,7 +346,9 @@ void WaypointManager::update_path_progression(const Vec3f& swarm_center_position
 
     // Check if the current waypoint is the final destination
     if (active_waypoint_index_ >= waypoints_.size() - 1) {
+    // if (false) { //active_waypoint_index_ >= waypoints_.size() - 1) {
 
+        std::cout << "enter slow down, last WP and beyond\n";
         // Define the range over which the swarm will slow down (e.g., last 20 units)
         const float SLOWDOWN_DISTANCE = 100.0f; 
         const float MAX_SPEED = 5.1f; 

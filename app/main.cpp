@@ -111,7 +111,7 @@ float simulation_duration_s = 5.0;
 bool g_show_full_path = false; // show full swarm COG path
 bool g_show_log_metric_header = false; // mainly to debug the cohesion metric and log its details
 float g_ogl_zoom_lvl = 70.0f; // large: far, small value: near (zoommed in)
-float g_ogl_trans_x = 30.0f; // opengl camera view translate coord system along x axis
+float g_ogl_trans_x = 0.0f; // opengl camera view translate coord system along x axis
 bool g_stop_simulation = false;
 std::string metricfilename;
 
@@ -575,18 +575,32 @@ void init(void)
     // define the whole path as a vector 
     std::vector<Vec3f> triangle_path = {
         Vec3f(20, 0, 0),      // Waypoint 1
-        Vec3f(30, 10, 10),      // Waypoint 2
+        Vec3f(30, 10, 0),      // Waypoint 2
         Vec3f(40, 20, 0),      // Waypoint 3 
     };
-    std::vector<Vec3f> four_point_path = {
+    std::vector<Vec3f> triangle_path_2D = {
+        Vec3f(20, 0, 0),      // Waypoint 1
+        Vec3f(30, 10, 0),      // Waypoint 2
+        Vec3f(40, 20, 0),      // Waypoint 3 
+    };
+    std::vector<Vec3f> WP_path = {
         Vec3f(10, 0, 0),      // Waypoint 1
-        Vec3f(10, 10, 0),      // Waypoint 2
-        Vec3f(20, 0, 0),      // Waypoint 3 
-        Vec3f(30, 10, 0)      // Waypoint 4 (The final hover point)
+        Vec3f(0, 10, 0),      // Waypoint 2
+        Vec3f(-10, 0, 0),      // Waypoint 3 
+        Vec3f(-10, -10, 0)      // Waypoint 4 (The final hover point)
+    };
+
+    std::vector<Vec3f> rectangle_path = {
+        Vec3f(25, 0, 0),      
+        Vec3f(25, 15, 0),     
+        Vec3f(5, 15, 0),      
+        Vec3f(5, 5, 0)      
     };
 
     // WaypointManager
-    waypoints_.emplace_back(four_point_path);
+    // waypoints_.emplace_back(four_point_path);
+    // waypoints_.emplace_back(WP_path);
+    waypoints_.emplace_back(rectangle_path);
     // waypoints_.emplace_back(triangle_path);
     // waypoints_.emplace_back( Vec3f(10, 0, 0));
     // comment if want enable waypoint from keyboard

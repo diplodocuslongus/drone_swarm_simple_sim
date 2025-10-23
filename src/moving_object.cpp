@@ -141,8 +141,6 @@ bool MovingObject::are_at_safe_distance(const MovingObject &obj1, const MovingOb
     return (obj1.get_position() - obj2.get_position()).norm() > tmp_separation_min_dist;
 }
 
-
-
 bool MovingObject::are_neighbors(const MovingObject &left, const MovingObject &right)
 {
     float temp_neighbor_max_dist = MovingObject::getNeighborMaxDist();
