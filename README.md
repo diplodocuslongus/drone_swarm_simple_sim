@@ -74,9 +74,10 @@ Examples of commands to run:
 
 Keyboard inputs.
 
-- save screenshot
+- 's': save screenshot
 - add target
-- ESC end the simulation
+- 'ESC' end the simulation
+- 'j' jam communication (sudden increase of latency)
 - ...
 
 ### Python scripts
@@ -86,6 +87,40 @@ Example of collision penalty strategy:
 
 ![](./images/collision_penalty.png) 
 
+
+## simplified code explanation
+
+The main contains the whole simulation application with:
+- system initialization (boids, targets, opengl ...)
+- system evolution which sets the forces, positions and velocity of the drones and their interaction with objects
+
+All objects are considered "moving object" and the classes inherit from a MovingObject class.
+
+Specific forces to specific objects are defined in their respective classes.
+
+Objects are:
+- boids
+- targets / waypoints
+- obstacles
+
+Boids exchange their position using messenges, which latency can be set. Jamming can be set by a sudden very large increase of latency.
+
+There is also a waypoint manager to deal with navigation through waypoints.
+
+A coehsion metric is proposed to evaluate the degree of cohesion of the swarm as it moves, and the influence of various factors such as message latency, forces weights, etc,... on the swarm's cohesion.
+
+The trajectory of the swarm's center of gravity (COG) can be shown also.
+
+## Other considerations
+
+### Limitations
+
+The simulator doesn't account for the actual physical phenomenas to which real drones are submitted. 
+It doesn't account for:
+- innacuracy in position (this can be however simply modelled by applying a random noise on the position: TODO)
+- aerodymics of flight: no wind, no propeller, etc...
+- communication (position exchanged) is highly simplified
+- ...
 
 ### Messaging
 
@@ -98,6 +133,7 @@ Problems to solve:
 - what date structure to use for the messages, how are messages exchanged between neighbours?
 - how to realistically model message? I chose to "consume" message that is once a boid reads messages, they are gone (no resend)
 - how to deal with the boid evolution when no message is received (i.e. between the interval time between messages, which essentially corresponds to latency)? 
+-
 
 #### Interpolate messages
 
@@ -120,6 +156,11 @@ Possible behaviours and tunnings of the swarm w.r.t. waypoints
     - hover over (need some work)
     - land (TODO)
     -
+
+### Cohesion metric
+
+The formula for the area of a circle is $A = \pi r^2$.
+
 
 ## simulation parameters
 

@@ -204,21 +204,21 @@ void printHelp() {
     std::cout << "Options:" << std::endl;
     std::cout << "  -h, --help  Display help and exit." << std::endl;
     std::cout << "--nb_boids    Number of boids in the simulation" << std::endl;
-    std::cout << "--maxdist     Max dist btwn objects for them to be considered as neighbors (boids to boids, boids to object)    " << std::endl;
-    std::cout << "--separation  Separation weight                " << std::endl;
-    std::cout << "--alignment   Alignment weight                 " << std::endl;
-    std::cout << "--cohesion    Cohesion weight                  " << std::endl;
+    std::cout << "--maxdist     Max dist btwn objects (drone, target,...) for them to be considered as neighbors" << std::endl;
+    std::cout << "--separation  Boid Separation weight                " << std::endl;
+    std::cout << "--alignment   Boid Alignment weight                 " << std::endl;
+    std::cout << "--cohesion    Boid Cohesion weight                  " << std::endl;
     // std::cout << "--visdist     Vision distance range            " << std::endl; //TODO: ex if using a depth sensor
-    std::cout << "--visfov      cos Vision FOV                   " << std::endl;
+    std::cout << "--visfov      Boid cosine of vision FOV                   " << std::endl;
     std::cout << "--maxspeed    Maximum boid speed               " << std::endl;
     std::cout << "--targetattract Attraction to target weight    " << std::endl;
     std::cout << "--targetalign Speed of alignment to target" << std::endl;
     std::cout << "--fencerepel  Fence repel weight" << std::endl;
     std::cout << "--fencesz     Fence size" << std::endl;
-    std::cout << "--randf     Force Randomness" << std::endl;
-    std::cout << "--msglat     Message Latency" << std::endl;
-    std::cout << "--simt       Simulation duration in s" << std::endl;
-    std::cout << "--viewzoom       Simulation zoom level" << std::endl;
+    std::cout << "--randf       Force Randomness" << std::endl;
+    std::cout << "--msglat      Message Latency" << std::endl;
+    std::cout << "--simt        Simulation duration in s" << std::endl;
+    std::cout << "--viewzoom    Simulation zoom level" << std::endl;
 }
 // --- SET THE WEIGHTS AND PARAMETERS ---
 void set_boid_params(int nbboids,float maxdist,float mindist,
@@ -575,7 +575,7 @@ void init(void)
     // define the whole path as a vector 
     std::vector<Vec3f> triangle_path = {
         Vec3f(20, 0, 0),      // Waypoint 1
-        Vec3f(30, 10, 0),      // Waypoint 2
+        Vec3f(30, 10, 10),      // Waypoint 2
         Vec3f(40, 20, 0),      // Waypoint 3 
     };
     std::vector<Vec3f> four_point_path = {
